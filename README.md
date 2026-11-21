@@ -36,7 +36,7 @@ Après un déploiement de schéma, `npm run storage:check` effectue un test rée
 
 ## Fournisseur hippique
 
-Le produit vise les courses françaises. Le connecteur The Racing API présent dans le code ne fournit ici que les programmes du Royaume-Uni et d’Irlande ; ses données françaises concernent les résultats historiques, pas le programme français du jour. Ne l’activez pas pour TURF PRO. Aucun flux français autorisé n’est encore configuré : laissez `HORSE_RACING_PROVIDER=demo` jusqu’à l’obtention d’un accès commercial explicite à un fournisseur français. Les calendriers publics de France Galop et LeTROT ne constituent pas, à eux seuls, une autorisation de recopier ou redistribuer leurs données.
+Le produit vise les courses françaises. Le connecteur The Racing API peut demander les cartes françaises du jour (`region_codes=fr`), mais ne l’activez qu’avec un abonnement couvrant ces cartes et une autorisation écrite pour l’affichage public/commercial et l’usage dans les analyses. Les identifiants doivent rester dans l’environnement serveur. La synchronisation est déclenchée par un membre du staff depuis `/admin`; le mode `demo` reste le défaut. Les calendriers publics de France Galop et LeTROT ne constituent pas, à eux seuls, une autorisation de recopier ou redistribuer leurs données.
 
 Neon héberge la base et le stockage, pas le site web. L’accès depuis les pays d’Afrique de l’Ouest visés devra être vérifié après le choix d’un hébergeur web, la configuration du domaine et des tests réseau dans ces pays.
 

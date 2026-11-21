@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
   const races = await prisma.race.findMany({
     where: {
+      provider: process.env.HORSE_RACING_PROVIDER ?? "demo",
       ...(country ? { country } : {}),
       ...(includeFinished ? {} : { status: { in: ["SCHEDULED", "VERIFIED", "LIVE"] } }),
     },

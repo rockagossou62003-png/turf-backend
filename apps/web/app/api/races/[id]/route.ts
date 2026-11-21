@@ -7,7 +7,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
 
   const race = await prisma.race.findUnique({
-    where: { id },
+    where: { id, provider: process.env.HORSE_RACING_PROVIDER ?? "demo" },
     include: {
       runners: { orderBy: [{ isNonRunner: "asc" }, { number: "asc" }] },
       predictions: { where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" } },

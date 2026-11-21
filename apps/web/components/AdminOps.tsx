@@ -37,8 +37,8 @@ export default function AdminOps({ providerCode }: { providerCode: string }) {
             ? "Synchronisation…"
             : providerCode === "demo"
               ? "Synchroniser (démo)"
-                : providerCode === "theracingapi"
-                  ? "Synchroniser (The Racing API)"
+              : providerCode === "theracingapi"
+                  ? "Synchroniser (courses françaises)"
                   : `Synchroniser (${providerCode})`}
         </button>
         <button className="btn btn-secondary" disabled={busy !== null} onClick={() => call("/api/admin/generate", "generate")}>

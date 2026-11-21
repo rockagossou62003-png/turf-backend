@@ -16,7 +16,7 @@ const racecardSchema = z.object({
   off_dt: z.string().nullable().optional(),
   race_name: z.string().min(1),
   distance_f: z.string().min(1),
-  region: z.enum(["GB", "IRE"]),
+  region: z.enum(["GB", "IRE", "FR"]),
   surface: z.string().nullable().optional(),
   race_status: z.string().nullable().optional(),
   runners: z.array(runnerSchema),
@@ -59,8 +59,7 @@ async function fetchRacecardsForDay(day: RacecardsDay, authorization: string): P
     url.searchParams.set("day", day);
     url.searchParams.set("limit", String(PAGE_SIZE));
     url.searchParams.set("skip", String(skip));
-    url.searchParams.append("region_codes", "gb");
-    url.searchParams.append("region_codes", "ire");
+    url.searchParams.append("region_codes", "fr");
 
     const response = await fetch(url, {
       headers: { Authorization: authorization },

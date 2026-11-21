@@ -9,7 +9,10 @@ export default async function ProgrammePage() {
   const user = await getSessionUser();
 
   const races = await prisma.race.findMany({
-    where: { status: { in: ["SCHEDULED", "VERIFIED", "LIVE", "FINISHED", "RESULT_CONFIRMED"] } },
+    where: {
+      provider: process.env.HORSE_RACING_PROVIDER ?? "demo",
+      status: { in: ["SCHEDULED", "VERIFIED", "LIVE", "FINISHED", "RESULT_CONFIRMED"] },
+    },
     orderBy: { startsAt: "asc" },
     include: {
       predictions: { where: { status: "PUBLISHED" } },

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { mapTheRacingApiRacecard } from "@/lib/providers/theracingapi";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchTheRacingApiRaces, mapTheRacingApiRacecard } from "@/lib/providers/theracingapi";
 
 const racecard = {
   race_id: "rac_123",
@@ -20,6 +20,11 @@ const racecard = {
 };
 
 describe("mapTheRacingApiRacecard", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("maps declared runners and preserves non-runner state without importing reserves", () => {
     const race = mapTheRacingApiRacecard(racecard);
 
@@ -52,6 +57,13 @@ describe("mapTheRacingApiRacecard", () => {
     expect(mapTheRacingApiRacecard({ ...racecard, race_status: "abandoned" })).toBeNull();
   });
 
+  it("maps French racecards", () => {
+    expect(mapTheRacingApiRacecard({ ...racecard, course: "Longchamp", region: "FR" })).toMatchObject({
+      country: "FR",
+      venue: "Longchamp",
+    });
+  });
+
   it("rejects races without a timezone-aware start time", () => {
     expect(() => mapTheRacingApiRacecard({ ...racecard, off_dt: null })).toThrow(
       "n’a pas d’heure de départ avec fuseau horaire",
@@ -59,5 +71,30 @@ describe("mapTheRacingApiRacecard", () => {
     expect(() => mapTheRacingApiRacecard({ ...racecard, off_dt: "2026-06-20T13:00:00" })).toThrow(
       "n’a pas d’heure de départ avec fuseau horaire",
     );
+  });
+});
+
+describe("fetchTheRacingApiRaces", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("requests only French racecards for today and tomorrow", async () => {
+    vi.stubEnv("RACING_API_USERNAME", "test-user");
+    vi.stubEnv("RACING_API_PASSWORD", "test-password");
+    const requestedUrls: URL[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        requestedUrls.push(new URL(input.toString()));
+        return new Response(JSON.stringify({ racecards: [], total: 0, limit: 500, skip: 0 }), { status: 200 });
+      }),
+    );
+
+    await fetchTheRacingApiRaces();
+
+    expect(requestedUrls.map((url) => url.searchParams.get("day"))).toEqual(["today", "tomorrow"]);
+    expect(requestedUrls.every((url) => url.searchParams.getAll("region_codes").join(",") === "fr")).toBe(true);
   });
 });

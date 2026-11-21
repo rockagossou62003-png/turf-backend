@@ -18,7 +18,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 export default async function CoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const race = await prisma.race.findUnique({
-    where: { id },
+    where: { id, provider: process.env.HORSE_RACING_PROVIDER ?? "demo" },
     include: {
       runners: { orderBy: [{ isNonRunner: "asc" }, { number: "asc" }] },
       predictions: { where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" } },

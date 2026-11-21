@@ -100,9 +100,9 @@ docker compose exec -T postgres pg_restore -U turfpro -d turfpro --clean < backu
 
 ## 8. Données hippiques françaises
 
-TURF PRO cible les courses françaises, mais aucun flux français commercialement autorisé n'est configuré. Le connecteur The Racing API disponible dans le code est limité aux programmes UK/Irlande : ne le définissez pas comme fournisseur de production pour ce projet.
+TURF PRO cible les courses françaises. Le connecteur The Racing API demande les cartes françaises via `region_codes=fr`. Ne l'activez que si l'abonnement couvre les cartes du jour et si l'autorisation écrite permet l'affichage public/commercial et l'usage dans les analyses.
 
-Avant toute synchronisation réelle, obtenir d'un fournisseur français un accès/API et une autorisation écrite couvrant l'affichage commercial et l'utilisation pour les analyses TURF PRO. Garder `HORSE_RACING_PROVIDER="demo"` jusque-là. Les identifiants doivent rester dans l'environnement serveur ; ne pas scraper ni recopier les calendriers publics sans autorisation.
+Dans l'environnement serveur, définir `HORSE_RACING_PROVIDER=theracingapi`, `RACING_API_USERNAME`, `RACING_API_PASSWORD` et `THERACINGAPI_CONTRACT_ACCEPTED=1` après obtention de cette autorisation. Garder les identifiants dans l'environnement serveur ; ne pas les committer, ne pas les envoyer dans le chat et ne pas scraper ni recopier les calendriers publics sans autorisation. La mise à jour des cartes est manuelle depuis `/admin` et nécessite un compte staff.
 
 ## 9. Mise à jour de l'application
 

@@ -55,6 +55,7 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
   if (!race.runners.length) throw new Error(`Course ${race.providerRaceId} sans partants`);
 
   const payloadHash = hashPayload(race);
+  const isFrenchProvider = providerCode === "theracingapi";
   const existing = await prisma.race.findUnique({
     where: { provider_providerRaceId: { provider: providerCode, providerRaceId: race.providerRaceId } },
     include: { runners: true },
@@ -85,7 +86,7 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       startsAt,
       distanceMeters: race.distanceMeters ?? null,
       surface: race.surface ?? null,
-      status: criticalChange ? "DATA_QUARANTINED" : "DISCOVERED",
+      status: criticalChange ? "DATA_QUARANTINED" : isFrenchProvider ? "SCHEDULED" : "DISCOVERED",
       sourceUpdatedAt: new Date(),
       rawPayloadHash: payloadHash,
     },
@@ -99,6 +100,9 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       sourceUpdatedAt: new Date(),
       rawPayloadHash: payloadHash,
       ...(criticalChange ? { status: "DATA_QUARANTINED" as const } : {}),
+      ...(!criticalChange && existing?.status === "DISCOVERED" && isFrenchProvider
+        ? { status: "SCHEDULED" as const }
+        : {}),
     },
   });
 

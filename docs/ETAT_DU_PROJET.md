@@ -20,7 +20,7 @@ Droits d'accès vérifiés côté serveur ; paiement confirmé uniquement par we
 - Paiement simulé via webhook HMAC signé et idempotent ; création de droits dans une transaction.
 
 ## Livré le 20/11/2026 — v0.2
-- **Connecteur fournisseur** (`lib/providers/theracingapi.ts`, `/api/admin/sync`) : programmes Basic UK/Irlande uniquement, import idempotent, contrôle qualité (non-partant, changement d'horaire → quarantaine + retrait des pronostics publiés) et erreurs explicites. Inadapté aux courses françaises visées par le produit ; laissé désactivé. L'intégration d'un flux français attend une source et une autorisation commerciale.
+- **Connecteur fournisseur** (`lib/providers/theracingapi.ts`, `/api/admin/sync`) : demande les cartes françaises du jour (`region_codes=fr`), import idempotent, contrôle qualité (non-partant, changement d'horaire → quarantaine + retrait des pronostics publiés) et erreurs explicites. Désactivé par défaut ; exige un plan couvrant les cartes françaises, une autorisation écrite de diffusion publique/commerciale, les identifiants serveur et une synchronisation staff manuelle.
 - **Moteur d'analyse** (`lib/analysis.ts`, `/api/admin/generate`) : génération déterministe depuis les partants déclarés (base gratuite 2 chevaux + couplé payant), statut `AI_GENERATED`, jamais publiée automatiquement, traçabilité modèle/version/empreinte.
 - **FedaPay serveur** (`lib/fedapay.ts`, `/api/orders`, `/api/payments/fedapay`) : création de transaction serveur, webhook vérifié (HMAC + anti-rejeu 5 min), montant vérifié, droits créés de façon idempotente. Sans clé, bascule automatique en simulation locale.
 - **Back-office** : panneau « Opérations » (synchroniser, générer) + file de validation existante.
