@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: turfpro
+      POSTGRES_PASSWORD: turfpro_local_dev
+      POSTGRES_DB: turfpro
+    ports: [ "5433:5432" ]
+    volumes: [ turfpro_pgdata:/var/lib/postgresql/data ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U turfpro -d turfpro" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: [ "6379:6379" ]
+    volumes: [ turfpro_redisdata:/data ]
+
+  # Application Next.js (profil "app" : ne démarre pas avec `docker compose up` local).
+  web:
+    build: ./apps/web
+    profiles: [ app ]
+    restart: unless-stopped
+    # Pas de port public : Caddy fait le front (80/443).
+    expose: [ "3000" ]
+    environment:
+      DATABASE_URL: postgresql://turfpro:turfpro_local_dev@postgres:5432/turfpro?schema=public
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      HORSE_RACING_PROVIDER: ${HORSE_RACING_PROVIDER:-demo}
+      THERACINGAPI_CONTRACT_ACCEPTED: ${THERACINGAPI_CONTRACT_ACCEPTED:-}
+      RACING_API_USERNAME: ${RACING_API_USERNAME:-}
+      RACING_API_PASSWORD: ${RACING_API_PASSWORD:-}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?renseignez PAYMENT_WEBHOOK_SECRET}
+      CRON_SECRET: ${CRON_SECRET:-}
+      FEDAPAY_SECRET_KEY: ${FEDAPAY_SECRET_KEY:-}
+      FEDAPAY_WEBHOOK_SECRET: ${FEDAPAY_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_DEMO_WEBHOOK_SECRET: ${NEXT_PUBLIC_DEMO_WEBHOOK_SECRET:-dev-simulation-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Reverse proxy HTTPS automatique (Caddy). Nécessite un domaine pointant
+  # vers le serveur et la variable APP_URL (ex. https://mon-domaine.com).
+  caddy:
+    image: caddy:2-alpine
+    profiles: [app]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${APP_URL:-http://localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - turfpro_caddydata:/data
+      - turfpro_caddyconfig:/config
+    depends_on: [web]
+
+  # Cron de publication programmée (toutes les minutes).
+  cron-publish:
+    image: curlimages/curl:latest
+    profiles: [ app ]
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+      APP_URL: http://web:3000
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: [ "while true; do sleep 60; curl -s -X POST -H \"x-cron-secret: $${CRON_SECRET}\" $${APP_URL}/api/cron/publish >/dev/null || true; done" ]
+    depends_on: [ web ]
+
+volumes:
+  turfpro_pgdata:
+  turfpro_redisdata:
+  turfpro_caddydata:
+  turfpro_caddyconfig:

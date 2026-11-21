@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurfPro PMU — Programme Quotidien & Pronostics du Jour</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#F59E0B',
+              dark: '#0B0F19',
+              card: '#111827',
+              border: '#1F2937',
+              green: '#10B981',
+              red: '#EF4444',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+      50% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.8); }
+    }
+    .glow-gold { animation: pulse-glow 2s infinite; }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0B0F19; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+  <div class="bg-rose-950 text-rose-200 text-center text-xs font-bold px-3 py-2">MODE DÉMONSTRATION : les paiements, comptes et droits d’accès sont simulés dans ce fichier. Aucun paiement réel n’est effectué.</div>
+
+  <!-- TOP GLOBAL CONTROLLER BAR -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 text-xl font-black">
+          🏇
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-black tracking-tight text-white">TURF<span class="text-amber-500">PRO</span></span>
+            <span class="text-xs bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-amber-500/30">QUOTIDIEN EN DIRECT</span>
+          </div>
+          <p id="topDateBanner" class="text-xs text-slate-400">Pronostics hippiques • prototype de démonstration</p>
+        </div>
+      </div>
+
+      <!-- VIEW SELECTOR TABS -->
+      <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button id="btnViewMobile" onclick="switchView('mobile')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-amber-500 text-slate-950 shadow">
+          <i class="fa-solid fa-mobile-screen"></i> 1. App Mobile (Parieur)
+        </button>
+        <button id="btnViewAdmin" onclick="switchView('admin')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-gauge-high"></i> 2. Back-Office (Admin Quotidien)
+        </button>
+        <button id="btnViewApi" onclick="switchView('api')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-code"></i> 3. API & Webhooks
+        </button>
+      </div>
+
+      <!-- DATE ACTUELLE & STATUT -->
+      <div class="hidden md:flex items-center gap-3">
+        <div class="text-right">
+          <div id="liveClock" class="text-xs font-mono font-bold text-slate-200">15:12:00</div>
+          <div id="liveDate" class="text-[10px] text-amber-400 font-medium">Mercredi 18 Nov 2026</div>
+        </div>
+        <span class="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-950/40 border border-emerald-800/40 px-3 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          Prototype local • paiements simulés
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= BANDEAU DE PARTAGE DU LIEN POUR LES PARIEURS ================= -->
+  <div class="bg-gradient-to-r from-blue-950/80 via-slate-900 to-amber-950/80 border-b border-blue-500/30 px-4 py-2.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-xs">
+        <span class="bg-blue-600 text-white font-black px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider flex items-center gap-1">
+          <i class="fa-solid fa-share-nodes"></i> LIEN PARIEURS DISPONIBLE
+        </span>
+        <span class="text-slate-300 font-medium">Partagez ce lien à vos parieurs pour consulter les <strong>courses à venir</strong> et débloquer les pronostics via <strong>FedaPay</strong> :</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative flex items-center">
+          <input type="text" id="shareableLinkInput" readonly value="https://votre-domaine.tld" class="bg-slate-950 border border-blue-500/40 rounded-lg px-3 py-1.5 text-xs font-mono text-amber-400 w-72 sm:w-96 truncate shadow-inner focus:outline-none">
+        </div>
+        <button onclick="copyBettorLink()" id="btnCopyLink" class="bg-blue-600 hover:bg-blue-500 text-white font-black px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition transform active:scale-95">
+          <i class="fa-regular fa-copy"></i> <span id="copyLinkText">Copier le Lien</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 1. VUE APPLICATION MOBILE (AVEC SELECTEUR DE JOUR QUOTIDIEN) -->
+  <!-- ========================================================================= -->
+  <section id="viewMobile" class="flex-1 py-6 px-4 flex justify-center items-start">
+    <!-- Phone Mockup Frame -->
+    <div class="w-full max-w-md bg-slate-900 rounded-[40px] border-4 border-slate-800 shadow-2xl overflow-hidden flex flex-col min-h-[820px] relative">
+      
+      <!-- Phone Notch / Status Bar -->
+      <div class="bg-slate-950 px-6 py-2.5 flex justify-between items-center text-xs text-slate-400 border-b border-slate-800/60">
+        <span id="phoneClock" class="font-bold text-white">15:12</span>
+        <div class="w-24 h-4 bg-slate-900 rounded-full mx-auto"></div>
+        <div class="flex items-center gap-1.5">
+          <i class="fa-solid fa-signal"></i>
+          <span class="text-[10px] font-bold">4G+</span>
+          <i class="fa-solid fa-battery-three-quarters"></i>
+        </div>
+      </div>
+
+      <!-- App Header -->
+      <div class="bg-slate-900/95 backdrop-blur px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+        <div>
+          <span class="text-lg font-black tracking-tight text-white">TURF<span class="text-amber-500">PRO</span></span>
+          <p id="currentHippodromeSub" class="text-[10px] text-slate-400 font-medium">Paris-Vincennes • Quinté+</p>
+        </div>
+        <div id="mobileVipBadge" onclick="openPaymentModal()" class="cursor-pointer bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 transition hover:scale-105">
+          <i class="fa-solid fa-crown text-amber-400"></i>
+          <span id="vipBadgeText">PASSER VIP</span>
+        </div>
+      </div>
+
+      <!-- ================= SÉLECTEUR DE JOURS (HIER / AUJOURD'HUI / DEMAIN / DATE) ================= -->
+      <div class="bg-slate-950 px-3 py-2 border-b border-slate-800/80">
+        <div class="flex items-center justify-between gap-1">
+          <button onclick="setDayFilter('yesterday')" id="dayBtnYesterday" class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white bg-slate-900/80 border border-slate-800 flex flex-col items-center">
+            <span class="text-[9px] text-slate-500">Hier</span>
+            <span id="labelYesterdayDate">17 Nov</span>
+          </button>
+          <button onclick="setDayFilter('today')" id="dayBtnToday" class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition bg-amber-500 text-slate-950 shadow-md border border-amber-400 flex flex-col items-center">
+            <span class="text-[9px] text-slate-950/80 font-bold">Aujourd'hui</span>
+            <span id="labelTodayDate">18 Nov</span>
+          </button>
+          <button onclick="setDayFilter('tomorrow')" id="dayBtnTomorrow" class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white bg-slate-900/80 border border-slate-800 flex flex-col items-center">
+            <span class="text-[9px] text-slate-500">Demain</span>
+            <span id="labelTomorrowDate">19 Nov</span>
+          </button>
+          <div class="relative">
+            <input type="date" id="calendarPicker" onchange="onCalendarDatePicked(this.value)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+            <button class="p-2.5 rounded-lg text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400" title="Choisir une autre date">
+              <i class="fa-regular fa-calendar-days text-sm"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Countdown Banner (Affiché principalement pour aujourd'hui) -->
+      <div id="countdownBanner" class="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/40 px-4 py-2 border-b border-amber-500/20 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-xs text-slate-300 font-semibold">
+          <i class="fa-regular fa-clock text-amber-400"></i>
+          <span id="countdownLabel">DÉPART DU QUINTÉ+ DANS :</span>
+        </div>
+        <span id="countdownDisplay" class="font-mono font-black text-amber-400 text-sm tracking-wider">00h 14m 20s</span>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950" id="mobileScrollArea">
+        
+        <!-- ================= ONGLET PROGRAMME DU JOUR ================= -->
+        <div id="mobileTabHome" class="space-y-4">
+          
+          <!-- Conteneur dynamique des courses du jour sélectionné -->
+          <div id="racesListContainer" class="space-y-4">
+            <!-- Rendu automatique via renderMobileDailyRaces() -->
+          </div>
+
+          <!-- MENTION LEGALE OBLIGATOIRE (CONFORMITE ARJEL / RGPD) -->
+          <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-800/80 text-[10px] text-slate-400 leading-normal">
+            <span class="font-bold text-slate-300">⚠️ Avertissement Légal Quotidien :</span> Les pronostics sont fournis à titre d'analyse statistique et ne garantissent aucun gain. Jouer comporte des risques : isolement, dépendance. <strong>Interdit aux moins de 18 ans.</strong>
+          </div>
+        </div>
+
+        <!-- ================= ONGLET DÉDIÉ : COURSES À VENIR ================= -->
+        <div id="mobileTabUpcoming" class="hidden space-y-3">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <h3 class="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Prochaines Courses à Venir</span>
+              </h3>
+              <p class="text-[10px] text-slate-400">Classées par ordre chronologique de départ</p>
+            </div>
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-black">
+              PARIS-VINCENNES & AUTEUIL
+            </span>
+          </div>
+
+          <div id="upcomingFeedContainer" class="space-y-3">
+            <!-- Rendu dynamique via renderUpcomingFeed() -->
+          </div>
+        </div>
+
+        <!-- ================= ONGLET HISTORIQUE & BILAN DES JOURS PRÉCÉDENTS ================= -->
+        <div id="mobileTabHistory" class="hidden space-y-3">
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-sm font-extrabold text-white">Archives & Transparence Journalière</h3>
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">87.5% de réussite</span>
+          </div>
+          <div id="historyArchivesContainer" class="space-y-3">
+            <!-- Rendu automatique des courses terminées -->
+          </div>
+        </div>
+
+        <!-- ================= ONGLET COMPTE & ABONNEMENT ================= -->
+        <div id="mobileTabProfile" class="hidden space-y-4">
+          <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 text-center">
+            <div class="w-16 h-16 rounded-full bg-slate-800 mx-auto flex items-center justify-center text-2xl text-slate-300 mb-2 border border-slate-700">
+              👤
+            </div>
+            <h3 class="text-sm font-bold text-white">+242 06 511 22 33</h3>
+            <p id="profileVipStatus" class="text-xs text-slate-400 mt-1">Compte Gratuit (Mode Invité)</p>
+
+            <button onclick="openPaymentModal()" class="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wide">
+              Recharger / Prolonger Pass VIP
+            </button>
+          </div>
+
+          <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 text-xs space-y-2 text-slate-300">
+            <div class="font-bold text-white">Abonnements Quotidien & Support</div>
+            <p class="text-[11px] text-slate-400">Le Pass 24h vous donne accès à tous les pronostics du jour sélectionné. Support WhatsApp en direct :</p>
+            <a href="https://wa.me/242065112233" target="_blank" class="inline-flex items-center gap-1.5 text-emerald-400 font-bold hover:underline">
+              <i class="fa-brands fa-whatsapp"></i> +242 06 511 22 33
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom Navigation Bar -->
+      <nav class="bg-slate-950 border-t border-slate-800 px-3 py-2.5 flex justify-between items-center text-center">
+        <button onclick="switchMobileTab('home')" id="tabBtnHome" class="flex-1 flex flex-col items-center text-amber-500 font-bold text-[10px] gap-1">
+          <i class="fa-solid fa-horse-head text-base"></i>
+          <span>Programme</span>
+        </button>
+        <button onclick="switchMobileTab('upcoming')" id="tabBtnUpcoming" class="flex-1 flex flex-col items-center text-slate-400 hover:text-white font-medium text-[10px] gap-1 relative">
+          <span class="absolute -top-1 right-3 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <i class="fa-solid fa-clock-rotate-left text-base text-emerald-400"></i>
+          <span>À Venir ⏰</span>
+        </button>
+        <button onclick="switchMobileTab('history')" id="tabBtnHistory" class="flex-1 flex flex-col items-center text-slate-400 hover:text-white font-medium text-[10px] gap-1">
+          <i class="fa-solid fa-chart-line text-base"></i>
+          <span>Bilan & Gains</span>
+        </button>
+        <button onclick="switchMobileTab('profile')" id="tabBtnProfile" class="flex-1 flex flex-col items-center text-slate-400 hover:text-white font-medium text-[10px] gap-1">
+          <i class="fa-solid fa-user text-base"></i>
+          <span>Mon Compte</span>
+        </button>
+      </nav>
+
+      <!-- ================= MODAL FEDAPAY CHECKOUT ================= -->
+      <div id="paymentModal" class="hidden absolute inset-0 bg-black/85 backdrop-blur-sm z-50 flex flex-col justify-end transition-opacity duration-300">
+        <div class="bg-slate-900 rounded-t-[32px] p-5 border-t border-slate-700 shadow-2xl max-h-[90%] overflow-y-auto space-y-4">
+          <div class="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-1"></div>
+          
+          <!-- FEDAPAY OFFICIAL HEADER -->
+          <div class="bg-gradient-to-r from-blue-950/80 via-slate-900 to-indigo-950/80 border border-blue-500/40 rounded-2xl p-3 flex items-center justify-between shadow-md">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+                FP
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-black text-white">FedaPay Checkout</span>
+                  <span class="text-[9px] bg-emerald-500/20 text-emerald-300 font-extrabold px-1.5 py-0.2 rounded border border-emerald-500/30">VÉRIFIÉ</span>
+                </div>
+                <p class="text-[10px] text-blue-300">Paiement Mobile Money & Carte 100% sécurisé</p>
+              </div>
+            </div>
+            <button onclick="closePaymentModal()" class="text-slate-400 hover:text-white text-lg p-1">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- 1. Formules de Pronostics PMU à la Carte -->
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-slate-300 block">1. Choisissez votre Formule PMU :</label>
+            <div class="grid grid-cols-2 gap-2">
+              <!-- Couplé 500F/combi -->
+              <div onclick="selectBetFormula('COUPLE_500', 500)" id="planCardCouple" class="cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-amber-500 transition">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-black text-amber-400">🎯 1 Couplé</span>
+                  <span class="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-1.5 rounded">500 F/comb</span>
+                </div>
+                <span id="coupleCardSub" class="text-[10px] text-slate-400 block mt-1">Multiplicateur au choix</span>
+              </div>
+
+              <!-- Trio Désordre 2500F -->
+              <div onclick="selectBetFormula('TRIO_DESORDRE', 2500)" id="planCardTrioDesordre" class="cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-slate-800 transition">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-black text-white">🥉 Trio Désordre</span>
+                  <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-1.5 rounded">2 500 F</span>
+                </div>
+                <span class="text-[10px] text-slate-400 block mt-1">3 chevaux sans ordre</span>
+              </div>
+
+              <!-- Trio Ordre 8000F -->
+              <div onclick="selectBetFormula('TRIO_ORDRE', 8000)" id="planCardTrioOrdre" class="cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-slate-800 transition">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-black text-purple-300">🥇 Trio Ordre</span>
+                  <span class="text-[10px] font-bold bg-purple-500/20 text-purple-300 px-1.5 rounded">8 000 F</span>
+                </div>
+                <span class="text-[10px] text-slate-400 block mt-1">Podium exact 1er-2e-3e</span>
+              </div>
+
+              <!-- Quinté en 7 Chevaux 5000F -->
+              <div onclick="selectBetFormula('QUINTE_7CH', 5000)" id="planCardQuinte7" class="cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-slate-800 transition">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-black text-red-400">🏆 Quinté 7 Chevaux</span>
+                  <span class="text-[10px] font-bold bg-red-500/20 text-red-300 px-1.5 rounded">5 000 F</span>
+                </div>
+                <span class="text-[10px] text-slate-400 block mt-1">Sélection en 7 chevaux</span>
+              </div>
+            </div>
+
+            <!-- CALCULATEUR DYNAMIQUE DE COMBINAISONS DE COUPLÉS -->
+            <div id="coupleCalculatorBox" class="bg-slate-950 p-2.5 rounded-xl border border-amber-500/40 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-amber-300 block">Combinaisons de Couplés :</span>
+                <span class="text-[10px] text-slate-400"><span id="coupleQtyText">1</span> combi × 500 F = <strong id="coupleCalculationText" class="text-amber-400 font-bold">500 FCFA</strong></span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="changeCoupleMultiplier(-1)" class="w-7 h-7 rounded-lg bg-slate-800 text-white font-black hover:bg-slate-700 text-sm flex items-center justify-center">-</button>
+                <span id="coupleMultiplierDisplay" class="font-mono font-black text-white text-sm w-6 text-center">1</span>
+                <button type="button" onclick="changeCoupleMultiplier(1)" class="w-7 h-7 rounded-lg bg-slate-800 text-white font-black hover:bg-slate-700 text-sm flex items-center justify-center">+</button>
+              </div>
+            </div>
+
+            <!-- OU PASS VIP GLOBAL -->
+            <div class="pt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Ou Pass Global :</span>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="selectBetFormula('PASS_24H', 10000)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">Pass 24h (10 000F)</button>
+                <button type="button" onclick="selectBetFormula('PASS_7D', 34680)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">Semaine (34 680F)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Opérateurs supportés par FedaPay -->
+          <div>
+            <label class="text-xs font-bold text-slate-300 mb-2 block">2. Mode de Paiement FedaPay :</label>
+            <div class="grid grid-cols-5 gap-1.5">
+              <button onclick="selectOperator('MTN_MOMO')" id="opMtn" class="bg-amber-500/20 text-amber-300 border-2 border-amber-500 py-2 rounded-lg text-[9px] font-black flex flex-col items-center">
+                <span>MTN</span>
+                <span class="text-[7px] font-normal">MoMo</span>
+              </button>
+              <button onclick="selectOperator('MOOV_MONEY')" id="opMoov" class="bg-slate-950 text-slate-400 border border-slate-800 py-2 rounded-lg text-[9px] font-black flex flex-col items-center">
+                <span>MOOV</span>
+                <span class="text-[7px] font-normal">Money</span>
+              </button>
+              <button onclick="selectOperator('ORANGE_MONEY')" id="opOrange" class="bg-slate-950 text-slate-400 border border-slate-800 py-2 rounded-lg text-[9px] font-black flex flex-col items-center">
+                <span>ORANGE</span>
+                <span class="text-[7px] font-normal">Money</span>
+              </button>
+              <button onclick="selectOperator('CELTIIS')" id="opCeltiis" class="bg-slate-950 text-slate-400 border border-slate-800 py-2 rounded-lg text-[9px] font-black flex flex-col items-center">
+                <span>CELTIIS</span>
+                <span class="text-[7px] font-normal">Cash</span>
+              </button>
+              <button onclick="selectOperator('CARTE')" id="opCarte" class="bg-slate-950 text-slate-400 border border-slate-800 py-2 rounded-lg text-[9px] font-black flex flex-col items-center">
+                <span>VISA</span>
+                <span class="text-[7px] font-normal">Mastercard</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Numéro de téléphone ou Carte -->
+          <div>
+            <label id="phoneInputLabel" class="text-xs font-bold text-slate-300 mb-1 block">3. Numéro de téléphone Mobile Money :</label>
+            <input type="tel" id="mobileNumberInput" value="+242 06 511 22 33" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-blue-500 outline-none">
+          </div>
+
+          <!-- CTA Validation FedaPay -->
+          <button id="btnConfirmPayment" onclick="triggerSimulationPayment()" class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition transform active:scale-95">
+            <i class="fa-solid fa-lock"></i>
+            <span>Simuler le paiement (<span id="payAmountLabel">10 000 FCFA</span>)</span>
+          </button>
+          
+          <div class="flex items-center justify-center gap-2 text-[10px] text-slate-400">
+            <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+            <span>Agrégation sécurisée par FedaPay • Déblocage instantané par Webhook</span>
+          </div>
+        </div>
+      </div>
+          
+          <p class="text-[10px] text-slate-500 text-center">Un push USSD s'affichera sur votre écran de téléphone pour valider avec votre code PIN secret.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 2. VUE BACK-OFFICE ADMINISTRATEUR (GESTION QUOTIDIENNE DU PROGRAMME) -->
+  <!-- ========================================================================= -->
+  <section id="viewAdmin" class="hidden flex-1 py-8 px-4 max-w-7xl mx-auto w-full space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+      <div>
+        <h2 class="text-2xl font-black text-white">Gestion Quotidienne des Courses & Pronostics</h2>
+        <p class="text-sm text-slate-400">Publiez et mettez à jour les courses du jour, validez les arrivées et encaissez par Mobile Money</p>
+      </div>
+
+      <!-- BARRE D'ACTIONS ADMIN -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="autoGenerateDailyRaces()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wide flex items-center gap-2 shadow-lg transition">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> 🔄 Générer Automatiquement les Courses du Jour
+        </button>
+        <button onclick="openNewRaceModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wide flex items-center gap-2 transition">
+          <i class="fa-solid fa-plus"></i> Créer une Course Manuelle
+        </button>
+        <button onclick="triggerBroadcastModal()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition">
+          <i class="fa-solid fa-bullhorn"></i> Alerte Dernière Minute
+        </button>
+      </div>
+    </div>
+
+    <!-- MODULE IA AUTONOME TURF PRO : INTERFACE DE PILOTAGE (DEMONSTRATION) -->
+    <section class="bg-slate-900 border border-cyan-700/40 rounded-2xl p-5 space-y-4">
+      <div class="flex flex-wrap justify-between items-start gap-3">
+        <div>
+          <div class="flex items-center gap-2"><span class="text-cyan-300 text-xl">✦</span><h3 class="text-lg font-black text-white">Centre de pilotage IA</h3><span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-1 rounded-full font-black">MODE DÉMO</span></div>
+          <p class="text-xs text-slate-400 mt-1">Synchronisation des courses, contrôle qualité, génération de pronostics et validation humaine avant publication.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="turfAiDemoSync()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-2 rounded-lg text-xs"><i class="fa-solid fa-rotate"></i> Simuler une synchronisation</button>
+          <button onclick="turfAiDemoGenerate()" class="bg-violet-600 hover:bg-violet-500 text-white font-bold px-3 py-2 rounded-lg text-xs"><i class="fa-solid fa-wand-magic-sparkles"></i> Générer un brouillon IA</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800"><div class="text-[10px] text-slate-400">Dernière synchronisation</div><div id="turfAiLastSync" class="text-sm font-black text-white mt-1">Non connectée</div></div>
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800"><div class="text-[10px] text-slate-400">Courses à vérifier</div><div id="turfAiRaceCount" class="text-2xl font-black text-cyan-300 mt-1">0</div></div>
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800"><div class="text-[10px] text-slate-400">Pronostics en attente</div><div id="turfAiPendingCount" class="text-2xl font-black text-amber-300 mt-1">1</div></div>
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800"><div class="text-[10px] text-slate-400">Alertes bloquantes</div><div id="turfAiAlertCount" class="text-2xl font-black text-rose-300 mt-1">0</div></div>
+      </div>
+      <div class="grid lg:grid-cols-2 gap-4">
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-black text-white">Chaîne d'automatisation</h4>
+          <ol class="text-[11px] text-slate-300 space-y-2 list-decimal pl-4">
+            <li>Import fournisseur hippique et rapprochement des identifiants</li><li>Contrôle des horaires, partants, non-partants et changements</li><li>Analyse statistique et génération de propositions IA</li><li>Validation par un administrateur habilité</li><li>Publication programmée et récupération des résultats officiels</li>
+          </ol>
+          <p class="text-[10px] text-amber-300">La démonstration locale ne contacte aucun fournisseur et ne publie rien en production.</p>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex justify-between items-center"><h4 class="text-xs font-black text-white">File de validation des pronostics</h4><span class="text-[9px] text-amber-300">Validation requise</span></div>
+          <div id="turfAiProposal" class="border border-amber-500/30 bg-amber-950/20 rounded-lg p-3">
+            <div class="text-[10px] text-slate-400">PROPOSITION EXEMPLE — NON ISSUE D'UNE ANALYSE RÉELLE</div>
+            <div class="text-sm font-black text-white mt-1">Course de démonstration • R1C1</div>
+            <div class="text-xs text-slate-300 mt-1">Base proposée : 4 - 12 • Sélection : 4 - 12 - 7 - 1 - 9 - 14 - 2 - 8</div>
+            <div class="text-[10px] text-slate-400 mt-2">Justification, données utilisées et score de confiance seront joints à chaque proposition réelle.</div>
+            <div class="flex flex-wrap gap-2 mt-3"><button onclick="turfAiDemoDecision('approved')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black">Valider (démo)</button><button onclick="turfAiDemoDecision('rejected')" class="bg-rose-700 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black">Rejeter</button><button onclick="turfAiDemoDecision('revision')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black">Demander révision</button></div>
+          </div>
+          <div id="turfAiDecisionLog" class="text-[10px] text-slate-400" aria-live="polite">Aucune décision prise.</div>
+        </div>
+      </div>
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-3"><div class="text-[10px] font-black text-slate-300 mb-1">Journal technique</div><div id="turfAiLog" class="text-[10px] text-slate-400" aria-live="polite">En attente de configuration d'une API hippique et du serveur TURF PRO.</div></div>
+    </section>
+
+    <!-- FILTRE DE DATE D'ADMINISTRATION -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400">📅 Jour en cours d'administration :</span>
+        <input type="date" id="adminDateSelector" onchange="changeAdminSelectedDate(this.value)" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-amber-400 font-bold">
+        <span id="adminDateLabel" class="text-xs font-black text-white bg-slate-800 px-3 py-1 rounded-md">Mercredi 18 Novembre 2026</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="quickSelectAdminDate('yesterday')" class="px-3 py-1 text-xs rounded-lg bg-slate-950 text-slate-300 border border-slate-800 hover:text-white">Hier</button>
+        <button onclick="quickSelectAdminDate('today')" class="px-3 py-1 text-xs rounded-lg bg-amber-500 text-slate-950 font-bold">Aujourd'hui</button>
+        <button onclick="quickSelectAdminDate('tomorrow')" class="px-3 py-1 text-xs rounded-lg bg-slate-950 text-slate-300 border border-slate-800 hover:text-white">Demain</button>
+      </div>
+    </div>
+
+    <!-- KPI STATS CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800">
+        <span class="text-xs font-bold text-slate-400">ABONNÉS VIP ACTIFS</span>
+        <div id="adminVipCount" class="text-3xl font-black text-amber-500 mt-2">184</div>
+        <span class="text-xs text-emerald-400 font-semibold">↑ +14 parieurs aujourd'hui</span>
+      </div>
+
+      <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800">
+        <span class="text-xs font-bold text-slate-400">CHIFFRE D'AFFAIRES JOUR</span>
+        <div id="adminTodayRevenue" class="text-3xl font-black text-emerald-400 mt-2">92 500 F</div>
+        <span class="text-xs text-slate-400">En FCFA via MoMo / Airtel</span>
+      </div>
+
+      <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800">
+        <span class="text-xs font-bold text-slate-400">REVENUS MENSUELS</span>
+        <div class="text-3xl font-black text-cyan-400 mt-2">1 475 000 F</div>
+        <span class="text-xs text-emerald-400 font-semibold">Objectif atteint à 78%</span>
+      </div>
+
+      <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800">
+        <span class="text-xs font-bold text-slate-400">TAUX DE RÉUSSITE QUINTÉ+</span>
+        <div class="text-3xl font-black text-purple-400 mt-2">87.5%</div>
+        <span class="text-xs text-slate-400">30 derniers jours</span>
+      </div>
+    </div>
+
+    <!-- COURSES EN GESTION -->
+    <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-bold text-white">Programme Hippique de la Journée Sélectionnée</h3>
+          <p id="adminTableSub" class="text-xs text-slate-400">Mise à jour instantanée visible sur l'application des parieurs</p>
+        </div>
+        <button onclick="openNewRaceModal()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs">
+          + Ajouter une Course
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="text-slate-400 border-b border-slate-800">
+              <th class="py-3 px-3">Réunion</th>
+              <th class="py-3 px-3">Épreuve & Hippodrome</th>
+              <th class="py-3 px-3">Heure Départ</th>
+              <th class="py-3 px-3">Base Gratuite (2)</th>
+              <th class="py-3 px-3">Sélection VIP (8)</th>
+              <th class="py-3 px-3">Coup Sûr / Outsider</th>
+              <th class="py-3 px-3">Statut & Arrivée</th>
+              <th class="py-3 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="adminRacesTableBody" class="divide-y divide-slate-800">
+            <!-- Rendu dynamique par renderAdminRacesTable() -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS RECENTES -->
+    <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 space-y-4">
+      <h3 class="text-lg font-bold text-white">Flux Transactions Mobile Money en Direct</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="text-slate-400 border-b border-slate-800">
+              <th class="py-2.5 px-3">Réf Transaction</th>
+              <th class="py-2.5 px-3">Numéro Parieur</th>
+              <th class="py-2.5 px-3">Opérateur</th>
+              <th class="py-2.5 px-3">Formule</th>
+              <th class="py-2.5 px-3">Montant</th>
+              <th class="py-2.5 px-3">Statut</th>
+              <th class="py-2.5 px-3 text-right">Heure</th>
+            </tr>
+          </thead>
+          <tbody id="adminTransactionsBody" class="divide-y divide-slate-800 font-mono text-[11px]">
+            <!-- Transactions dynamiques -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 3. VUE EXPLORATEUR D'API & WEBHOOK SIMULATOR -->
+  <!-- ========================================================================= -->
+  <section id="viewApi" class="hidden flex-1 py-8 px-4 max-w-5xl mx-auto w-full space-y-6">
+    <div>
+      <h2 class="text-2xl font-black text-white">Documentation des Endpoints REST Quotidiens</h2>
+      <p class="text-sm text-slate-400">Gestion des courses du jour par date, récupération des pronostics et webhooks CinetPay / FedaPay</p>
+    </div>
+
+    <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 space-y-3">
+      <div class="flex items-center gap-3">
+        <span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded text-xs">GET</span>
+        <code class="text-sm text-amber-400 font-mono">/api/v1/races?date=YYYY-MM-DD</code>
+        <span class="text-xs text-slate-400">— Programme d'une date spécifique</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Permet de requêter n'importe quel jour (aujourd'hui, hier ou demain). Le backend filtre strictement les données VIP si le parieur n'a pas de Pass valide pour cette journée.
+      </p>
+      <div class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 overflow-x-auto border border-slate-800">
+<pre>{
+  "success": true,
+  "date": "2026-11-18",
+  "isUserVip": false,
+  "races": [
+    {
+      "meetingCode": "R1C1",
+      "hippodrome": "Paris-Vincennes",
+      "title": "Prix d'Amérique Legend Race",
+      "freeNumbers": [4, 12],
+      "vipNumbers": null,        // Masqué côté serveur
+      "sureBet": null,           // Masqué côté serveur
+      "isLocked": true
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL ADMIN SAISIE ARRIVÉE OFFICIELLE -->
+  <div id="publishModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-black text-white">🏆 Saisie Arrivée Officielle Top 5</h3>
+        <button onclick="closePublishModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p id="publishModalRaceTitle" class="text-xs text-slate-400">Course en cours</p>
+
+      <div>
+        <label class="text-xs font-bold text-slate-300 block mb-1">5 premiers chevaux à l'arrivée (ordre d'arrivée) :</label>
+        <input type="text" id="officialArrivalInput" value="4, 12, 7, 1, 9" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-amber-400 font-mono font-bold focus:border-amber-500 outline-none">
+        <p id="publishModalVipNotice" class="text-[10px] text-slate-400 mt-1">Sélection VIP : [4, 12, 7, 1, 9, 14, 2, 8]</p>
+      </div>
+
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+        💡 L'algorithme calcule instantanément si le Quinté+ ou Tiercé a été touché dans l'ordre ou le désordre, et met à jour l'historique public en direct.
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closePublishModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white">Annuler</button>
+        <button onclick="confirmOfficialArrival()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase">Calculer & Publier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOUVELLE COURSE MANUELLE -->
+  <div id="newRaceModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-black text-white">🏇 Ajouter une Course au Programme</h3>
+        <button onclick="closeNewRaceModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form onsubmit="handleAdminCreateRace(event)" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Date</label>
+            <input type="date" id="modalNewRaceDate" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white">
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Heure de Départ</label>
+            <input type="time" id="modalNewRaceTime" value="15:15" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Réunion (ex: R1C1)</label>
+            <input type="text" id="modalNewRaceMeeting" value="R1C1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white font-bold">
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Hippodrome</label>
+            <input type="text" id="modalNewRaceHippodrome" value="Paris-Vincennes" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[11px] text-slate-400 block mb-1">Nom du Prix / Épreuve</label>
+          <input type="text" id="modalNewRaceTitle" value="Grand Prix du Quinté+" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white">
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="modalNewRaceIsQuinte" checked class="w-4 h-4 text-amber-500 rounded">
+          <label for="modalNewRaceIsQuinte" class="text-xs text-amber-400 font-bold">Événement Quinté+ National</label>
+        </div>
+
+        <div class="border-t border-slate-800 pt-3 space-y-3">
+          <h4 class="text-xs font-bold text-amber-400">Pronostic de nos Experts :</h4>
+          <div>
+            <label class="text-[11px] text-emerald-400 block mb-1 font-bold">Base Gratuite (2 chevaux séparés par des virgules)</label>
+            <input type="text" id="modalNewRaceFreeNums" value="4, 12" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-emerald-300 font-bold">
+          </div>
+          <div>
+            <label class="text-[11px] text-amber-400 block mb-1 font-bold">Sélection VIP (8 chevaux)</label>
+            <input type="text" id="modalNewRaceVipNums" value="4, 12, 7, 1, 9, 14, 2, 8" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-amber-300 font-bold">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-300 block mb-1">Coup Sûr (N°)</label>
+              <input type="number" id="modalNewRaceSureBet" value="4" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white font-bold">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-300 block mb-1">Outsider (N°)</label>
+              <input type="number" id="modalNewRaceOutsider" value="14" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white font-bold">
+            </div>
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-300 block mb-1">Tuyau Dernière Minute</label>
+            <input type="text" id="modalNewRaceLastMinute" value="Déferré des 4 pieds, très favorable aux cotes." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeNewRaceModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white">Annuler</button>
+          <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase">Enregistrer & Diffuser</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCRIPT LOGIQUE INTERACTIVE MULTI-JOURS -->
+  <script>
+    // Dates de référence calculées dynamiquement
+    const now = new Date();
+    const formatDateKey = (d) => d.toISOString().slice(0, 10);
+
+    const todayDateKey = formatDateKey(now);
+    const yesterdayDate = new Date(now.getTime() - 86400000);
+    const yesterdayDateKey = formatDateKey(yesterdayDate);
+    const tomorrowDate = new Date(now.getTime() + 86400000);
+    const tomorrowDateKey = formatDateKey(tomorrowDate);
+
+    // Formattage textuel en français
+    const formatDayDisplay = (d) => d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const formatFullDateDisplay = (d) => d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Base de données locale de courses multi-jours
+    let racesDatabase = [
+      // HIER (Courses terminées avec arrivées)
+      {
+        id: 'race-yesterday-1',
+        date: yesterdayDateKey,
+        meetingCode: 'R1C1',
+        hippodrome: 'Chantilly',
+        title: 'Prix du Jockey Club',
+        discipline: 'Plat',
+        distance: 2100,
+        partants: 16,
+        time: '13:50',
+        isQuinte: true,
+        status: 'finished',
+        freeNumbers: [4, 12],
+        vipNumbers: [4, 12, 7, 1, 9, 15, 3, 6],
+        sureBet: 4,
+        outsider: 7,
+        lastMinuteNote: 'Excellente forme matinale confirmée.',
+        analysis: 'Terrain très souple favorisant les chevaux de tête.',
+        officialResult: [4, 12, 7, 1, 9],
+        winBadge: 'QUINTÉ ORDRE 🏆',
+        gainSummary: '✅ 5 numéros sur 5 trouvés ! Tiercé, Quarté et Quinté dans l\'Ordre.'
+      },
+      {
+        id: 'race-yesterday-2',
+        date: yesterdayDateKey,
+        meetingCode: 'R1C4',
+        hippodrome: 'Chantilly',
+        title: 'Prix de Royaumont',
+        discipline: 'Plat',
+        distance: 2400,
+        partants: 14,
+        time: '15:30',
+        isQuinte: false,
+        status: 'finished',
+        freeNumbers: [3, 8],
+        vipNumbers: [3, 8, 11, 2, 5, 9],
+        sureBet: 3,
+        outsider: 11,
+        officialResult: [3, 8, 11],
+        winBadge: 'TIERCÉ ORDRE 🔥',
+        gainSummary: '✅ Tiercé dans l\'ordre validé !'
+      },
+
+      // AUJOURD'HUI (Courses du jour en direct)
+      {
+        id: 'race-today-1',
+        date: todayDateKey,
+        meetingCode: 'R1C1',
+        hippodrome: 'Paris-Vincennes',
+        title: 'Prix d\'Amérique Legend Race — Quinté+ Événement',
+        discipline: 'Attelé',
+        distance: 2700,
+        partants: 16,
+        time: '15:15',
+        isQuinte: true,
+        status: 'upcoming',
+        freeNumbers: [4, 12],
+        vipNumbers: [4, 12, 7, 1, 9, 14, 2, 8],
+        sureBet: 4,
+        outsider: 14,
+        lastMinuteNote: 'Le n°14 est déferré des 4 pieds pour la première fois cette saison. Tuyau très chaud des balances ce matin à Grosbois. Belle cote spéculative !',
+        analysis: 'Piste annoncée rapide avec météo clémente. Le n°4 Idao de Tillard part grandissime favori. Le n°12 présente une régularité irréprochable.',
+        officialResult: null,
+      },
+      {
+        id: 'race-today-2',
+        date: todayDateKey,
+        meetingCode: 'R1C4',
+        hippodrome: 'Paris-Vincennes',
+        title: 'Prix de Dinan — Trot Monté',
+        discipline: 'Monté',
+        distance: 2175,
+        partants: 14,
+        time: '17:00',
+        isQuinte: false,
+        status: 'upcoming',
+        freeNumbers: [3, 9],
+        vipNumbers: [3, 9, 6, 11, 1, 7],
+        sureBet: 3,
+        outsider: 11,
+        lastMinuteNote: 'Changement de monte favorable pour le n°11. Ne pas négliger pour les places.',
+        analysis: 'Course ouverte au monté. Les chevaux du premier échelon ont un net avantage de rythme.',
+        officialResult: null,
+      },
+      {
+        id: 'race-today-3',
+        date: todayDateKey,
+        meetingCode: 'R2C1',
+        hippodrome: 'Deauville',
+        title: 'Prix des Étalons — Plat Piste en Sable Fibré (PSF)',
+        discipline: 'Plat',
+        distance: 1900,
+        partants: 16,
+        time: '18:30',
+        isQuinte: false,
+        status: 'upcoming',
+        freeNumbers: [7, 14],
+        vipNumbers: [7, 14, 2, 5, 8, 10, 1, 16],
+        sureBet: 7,
+        outsider: 10,
+        lastMinuteNote: 'Spécialiste de la PSF de Deauville. Très bien placé à la corde n°3.',
+        analysis: 'Course rapide sur le sable fibré. Avantage aux bons finisseurs.',
+        officialResult: null,
+      },
+
+      // DEMAIN (Programme officiel de demain)
+      {
+        id: 'race-tomorrow-1',
+        date: tomorrowDateKey,
+        meetingCode: 'R1C1',
+        hippodrome: 'Auteuil',
+        title: 'Prix Montgomery (Steeple-Chase) — Quinté+ Officiel de Demain',
+        discipline: 'Obstacle',
+        distance: 4700,
+        partants: 15,
+        time: '15:15',
+        isQuinte: true,
+        status: 'upcoming',
+        freeNumbers: [5, 10],
+        vipNumbers: [5, 10, 2, 8, 13, 1, 7, 14],
+        sureBet: 5,
+        outsider: 13,
+        lastMinuteNote: 'Sauts impeccables lors de l\'ultime entraînement hier matin. Objectif visé.',
+        analysis: 'Parcours d\'endurance très sélectif. Les spécialistes du terrain lourd sont à privilégier.',
+        officialResult: null,
+      },
+
+      // APRÈS-DEMAIN (Avant-première Quinté+)
+      {
+        id: 'race-after-tomorrow-1',
+        date: new Date(now.getTime() + 86400000 * 2).toISOString().slice(0, 10),
+        meetingCode: 'R1C1',
+        hippodrome: 'Chantilly',
+        title: 'Prix de Diane Longines — Quinté+ en Avant-Première',
+        discipline: 'Plat',
+        distance: 2100,
+        partants: 16,
+        time: '13:50',
+        isQuinte: true,
+        status: 'upcoming',
+        freeNumbers: [1, 6],
+        vipNumbers: [1, 6, 9, 4, 12, 15, 3, 8],
+        sureBet: 1,
+        outsider: 9,
+        lastMinuteNote: 'Poulains en pleine ascension, excellente cote envisagée.',
+        analysis: 'Course reine des pouliches. Rythme élevé garanti dès l\'ouverture des stalles.',
+        officialResult: null,
+      }
+    ];
+
+    // Transactions Mobile Money & FedaPay
+    let transactionsDatabase = [
+      { id: 'FP_TR_8819203', phone: '+242 06 511 22 33', operator: 'FedaPay (MTN)', plan: 'Pass Semaine (7j)', amount: 34680, status: 'SUCCESS', time: 'Il y a 6 min' },
+      { id: 'FP_TR_7124981', phone: '+229 97 00 11 22', operator: 'FedaPay (Moov)', plan: 'Pass 24h', amount: 10000, status: 'SUCCESS', time: 'Il y a 18 min' },
+      { id: 'FP_TR_5510442', phone: '+225 07 44 33 22', operator: 'FedaPay (Orange)', plan: 'Pass VIP Mois', amount: 80000, status: 'SUCCESS', time: 'Il y a 45 min' },
+      { id: 'FP_TR_4412093', phone: '+221 77 123 45 67', operator: 'FedaPay (Carte Visa)', plan: 'Pass 24h', amount: 10000, status: 'SUCCESS', time: 'Il y a 1h' },
+    ];
+
+    // État général
+    let state = {
+      isVip: false, // Conservé uniquement pour compatibilité visuelle; les droits utilisent vipExpiresAt
+      vipExpiresAt: null,
+      purchases: [], // achats à la carte: { raceId, productCode, purchasedAt }
+      selectedRaceId: null,
+      currentFilterDay: 'today', // 'yesterday' | 'today' | 'tomorrow' | 'custom'
+      activeDateKey: todayDateKey,
+      adminDateKey: todayDateKey,
+      selectedPlan: 'PASS_24H',
+      planPrice: 10000,
+      selectedOperator: 'MTN_MOMO',
+      vipSubscribersCount: 184,
+      todayRevenue: 134680,
+      selectedRaceForPublish: null,
+    };
+
+    // DROITS D’ACCÈS (MODE DÉMO UNIQUEMENT — à remplacer par des droits vérifiés côté serveur)
+    function hasVipAccess(raceId) {
+      return Boolean(state.vipExpiresAt && Date.now() < state.vipExpiresAt);
+    }
+
+    function hasProductAccess(raceId, productCode) {
+      return state.purchases.some(p => p.raceId === raceId && p.productCode === productCode);
+    }
+
+    function renderPurchasedProducts(race) {
+      const products = [
+        { code: 'COUPLE_500', label: 'Couplé', numbers: [race.vipNumbers[0], race.vipNumbers[1]] },
+        { code: 'TRIO_DESORDRE', label: 'Trio désordre', numbers: race.vipNumbers.slice(0, 3) },
+        { code: 'TRIO_ORDRE', label: 'Trio ordre', numbers: race.vipNumbers.slice(0, 3) },
+        { code: 'QUINTE_7CH', label: 'Quinté 7 chevaux', numbers: race.vipNumbers.slice(0, 7) }
+      ];
+      const owned = products.filter(p => hasProductAccess(race.id, p.code));
+      if (!owned.length) return '';
+      return `<div class="mt-2 bg-emerald-950/40 border border-emerald-700/50 rounded-lg p-2 space-y-2">
+        <div class="text-[10px] font-black text-emerald-300">ACHATS DÉBLOQUÉS POUR CETTE COURSE</div>
+        ${owned.map(p => `<div class="text-[11px] text-white"><strong>${p.label} :</strong> <span class="font-mono text-amber-300">${p.numbers.join(' - ')}</span></div>`).join('')}
+      </div>`;
+    }
+
+    // Initialisation
+    window.addEventListener('DOMContentLoaded', () => {
+      // Dates dynamiques dans l'UI
+      document.getElementById('labelYesterdayDate').innerText = formatDayDisplay(yesterdayDate);
+      document.getElementById('labelTodayDate').innerText = formatDayDisplay(now);
+      document.getElementById('labelTomorrowDate').innerText = formatDayDisplay(tomorrowDate);
+
+      document.getElementById('liveDate').innerText = formatFullDateDisplay(now);
+      document.getElementById('topDateBanner').innerText = `Programme officiel & pronostics mis à jour pour le ${formatFullDateDisplay(now)}`;
+
+      document.getElementById('adminDateSelector').value = todayDateKey;
+      document.getElementById('modalNewRaceDate').value = todayDateKey;
+      document.getElementById('adminDateLabel').innerText = formatFullDateDisplay(now);
+
+      renderMobileDailyRaces();
+      renderMobileHistoryArchives();
+      renderAdminRacesTable();
+      renderAdminTransactions();
+
+      // Horloge en direct
+      setInterval(() => {
+        const cur = new Date();
+        const timeStr = cur.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('liveClock').innerText = timeStr;
+        document.getElementById('phoneClock').innerText = timeStr.slice(0, 5);
+      }, 1000);
+    });
+
+    // Filtre des jours mobile
+    function setDayFilter(dayType) {
+      state.currentFilterDay = dayType;
+      if (dayType === 'yesterday') state.activeDateKey = yesterdayDateKey;
+      else if (dayType === 'today') state.activeDateKey = todayDateKey;
+      else if (dayType === 'tomorrow') state.activeDateKey = tomorrowDateKey;
+
+      updateDayButtonStyles();
+      renderMobileDailyRaces();
+    }
+
+    function onCalendarDatePicked(dateVal) {
+      if (!dateVal) return;
+      state.currentFilterDay = 'custom';
+      state.activeDateKey = dateVal;
+      updateDayButtonStyles();
+      renderMobileDailyRaces();
+    }
+
+    function updateDayButtonStyles() {
+      const resetBtn = (id) => {
+        const el = document.getElementById(id);
+        el.className = 'flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-white bg-slate-900/80 border border-slate-800 flex flex-col items-center';
+      };
+      resetBtn('dayBtnYesterday');
+      resetBtn('dayBtnToday');
+      resetBtn('dayBtnTomorrow');
+
+      const activeClasses = 'flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition bg-amber-500 text-slate-950 shadow-md border border-amber-400 flex flex-col items-center';
+      if (state.currentFilterDay === 'yesterday') document.getElementById('dayBtnYesterday').className = activeClasses;
+      if (state.currentFilterDay === 'today') document.getElementById('dayBtnToday').className = activeClasses;
+      if (state.currentFilterDay === 'tomorrow') document.getElementById('dayBtnTomorrow').className = activeClasses;
+
+      // Affichage ou masquage du bandeau compte à rebours selon le jour
+      if (state.currentFilterDay === 'today') {
+        document.getElementById('countdownBanner').classList.remove('hidden');
+        document.getElementById('countdownLabel').innerText = 'DÉPART DU QUINTÉ+ DANS :';
+      } else if (state.currentFilterDay === 'yesterday') {
+        document.getElementById('countdownBanner').classList.remove('hidden');
+        document.getElementById('countdownLabel').innerText = 'BILAN DES COURSES D\'HIER :';
+        document.getElementById('countdownDisplay').innerText = 'ARRIVÉES PUBLIÉES ✅';
+      } else {
+        document.getElementById('countdownBanner').classList.remove('hidden');
+        document.getElementById('countdownLabel').innerText = 'PROGRAMME DE DEMAIN :';
+        document.getElementById('countdownDisplay').innerText = 'PRÊT POUR DEMAIN ⏳';
+      }
+    }
+
+    // Rendu dynamique des courses du jour sélectionné
+    function renderMobileDailyRaces() {
+      const container = document.getElementById('racesListContainer');
+      const filtered = racesDatabase.filter(r => r.date === state.activeDateKey);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center space-y-3">
+            <span class="text-3xl">📅</span>
+            <h4 class="text-sm font-bold text-white">Aucune course enregistrée pour cette date (${state.activeDateKey})</h4>
+            <p class="text-xs text-slate-400">Le programme du jour est en cours de saisie par notre équipe de pronostiqueurs.</p>
+            <button onclick="switchView('admin')" class="bg-amber-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs">
+              + Ajouter une course dans le Back-Office
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map((race, index) => {
+        const isQuinte = race.isQuinte;
+        const isFinished = race.status === 'finished';
+
+        return `
+          <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-lg relative overflow-hidden">
+            <div class="flex justify-between items-start mb-2">
+              <span class="${isQuinte ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm">
+                ${isQuinte ? '⭐ Événement Quinté+' : '🏇 Course PMU'}
+              </span>
+              <span class="text-xs font-bold text-amber-400">${race.meetingCode} • ${race.discipline || 'Attelé'}</span>
+            </div>
+
+            <h3 class="text-base font-extrabold text-white leading-tight">${race.title}</h3>
+            <p class="text-xs text-slate-400 mt-0.5 mb-3">${race.hippodrome} • ${race.distance || 2700}m • ${race.partants || 16} Partants • Départ: ${race.time}</p>
+
+            ${isFinished && race.officialResult ? `
+              <!-- BANDEAU ARRIVÉE OFFICIELLE TERMINÉE -->
+              <div class="bg-emerald-950/60 border border-emerald-800/80 rounded-xl p-3 mb-3">
+                <div class="flex justify-between items-center mb-1.5">
+                  <span class="text-xs font-black text-emerald-400">🏆 ARRIVÉE OFFICIELLE :</span>
+                  <span class="bg-emerald-500/20 text-emerald-300 font-black text-[10px] px-2 py-0.5 rounded">
+                    ${race.winBadge || 'Gains Validés'}
+                  </span>
+                </div>
+                <div class="flex gap-1.5 font-mono font-black text-white text-sm">
+                  ${race.officialResult.map(n => `<span class="bg-slate-900 border border-emerald-500/40 px-2 py-0.5 rounded">${n}</span>`).join(' - ')}
+                </div>
+                ${race.gainSummary ? `<p class="text-[11px] text-emerald-300 mt-2 font-medium">${race.gainSummary}</p>` : ''}
+              </div>
+            ` : ''}
+
+            <!-- SECTION BASE GRATUITE -->
+            <div class="bg-slate-950/80 rounded-xl p-3 border border-emerald-900/40 mb-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-check-circle"></i> BASE GRATUITE (2 Chevaux)
+                </span>
+                <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded">Visible par tous</span>
+              </div>
+              <div class="flex gap-2">
+                ${race.freeNumbers.map(n => `
+                  <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white font-black text-lg flex items-center justify-center shadow-md">
+                    ${n}
+                  </div>
+                `).join('')}
+              </div>
+              <p class="text-[11px] text-slate-400 mt-2 leading-relaxed italic">
+                « ${race.analysis || 'Les deux chevaux les plus réguliers selon nos indices de forme.'} »
+              </p>
+            </div>
+
+            <!-- GRILLE DES 4 FORMULES DE PRONOSTICS À LA CARTE (TARIFS PERSONNALISÉS) -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 mb-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <i class="fa-solid fa-ticket text-amber-400"></i> Pronostics à acheter :
+                </span>
+                <span class="text-[10px] text-blue-400 font-extrabold">Via FedaPay ⚡</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <!-- 1. Couplé 500F/combi -->
+                <button type="button" onclick="openBetModalWith('COUPLE_500', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-amber-500/50 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-amber-400 text-[11px]">🎯 1 Couplé</span>
+                    <span class="text-[9px] font-bold bg-amber-500/20 text-amber-300 px-1 rounded">500 F/comb</span>
+                  </div>
+                  <p class="text-[9px] text-slate-400 mt-0.5">Nbre de combinaisons au choix</p>
+                </button>
+
+                <!-- 2. Trio Désordre 2500F -->
+                <button type="button" onclick="openBetModalWith('TRIO_DESORDRE', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-emerald-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-emerald-300 text-[11px]">🥉 Trio Désordre</span>
+                    <span class="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 px-1 rounded">2 500 F</span>
+                  </div>
+                  <p class="text-[9px] text-slate-400 mt-0.5">3 chevaux sans ordre</p>
+                </button>
+
+                <!-- 3. Trio Ordre 8000F -->
+                <button type="button" onclick="openBetModalWith('TRIO_ORDRE', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-purple-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-purple-300 text-[11px]">🥇 Trio Ordre</span>
+                    <span class="text-[9px] font-bold bg-purple-500/20 text-purple-300 px-1 rounded">8 000 F</span>
+                  </div>
+                  <p class="text-[9px] text-slate-400 mt-0.5">Podium exact 1er-2e-3e</p>
+                </button>
+
+                <!-- 4. Quinté 7 Chevaux 5000F -->
+                <button type="button" onclick="openBetModalWith('QUINTE_7CH', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-red-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-red-400 text-[11px]">🏆 Quinté 7 Chevaux</span>
+                    <span class="text-[9px] font-bold bg-red-500/20 text-red-300 px-1 rounded">5 000 F</span>
+                  </div>
+                  <p class="text-[9px] text-slate-400 mt-0.5">Ticket resserré 7 partants</p>
+                </button>
+              </div>
+            </div>
+
+            ${renderPurchasedProducts(race)}
+
+            <!-- SECTION VIP VERROUILLÉE OU DÉBLOQUÉE -->
+            <div class="bg-gradient-to-b from-slate-900 to-amber-950/30 rounded-xl p-3 border border-amber-500/40 relative">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-gem"></i> SÉLECTION VIP & TICKETS COMPLETS
+                </span>
+                <span class="text-[10px] font-bold ${hasVipAccess(race.id) || isFinished ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'} px-2 py-0.5 rounded">
+                  ${hasVipAccess(race.id) || isFinished ? 'DÉBLOQUÉ ✅' : '🔒 FEDAPAY'}
+                </span>
+              </div>
+
+              ${hasVipAccess(race.id) || isFinished ? `
+                <!-- TICKETS DÉVERROUILLÉS -->
+                <div class="space-y-3 pt-1">
+                  <!-- Sélection 7/8 chevaux -->
+                  <div class="bg-slate-950/80 p-2.5 rounded-lg border border-amber-500/20 space-y-2">
+                    <div class="text-[11px] font-bold text-amber-400">🏆 Quinté en 7 Chevaux :</div>
+                    <div class="flex flex-wrap gap-1.5">
+                      ${race.vipNumbers.slice(0, 7).map(n => `
+                        <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 font-black text-sm flex items-center justify-center shadow">
+                          ${n}
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <!-- Trio Ordre & Désordre -->
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-950/80 p-2 rounded-lg border border-purple-500/20">
+                      <div class="text-[10px] font-bold text-purple-300">🥇 Trio Ordre :</div>
+                      <div class="font-mono font-black text-amber-300 text-xs mt-1">1er: ${race.vipNumbers[0]} • 2e: ${race.vipNumbers[1]} • 3e: ${race.vipNumbers[2]}</div>
+                    </div>
+                    <div class="bg-slate-950/80 p-2 rounded-lg border border-emerald-500/20">
+                      <div class="text-[10px] font-bold text-emerald-300">🥉 Trio Désordre :</div>
+                      <div class="font-mono font-black text-white text-xs mt-1">${race.vipNumbers.slice(0, 3).join(' - ')}</div>
+                    </div>
+                  </div>
+
+                  <!-- Couplés conseillés -->
+                  <div class="bg-slate-950/80 p-2 rounded-lg border border-amber-500/20 text-xs">
+                    <div class="text-[10px] font-bold text-amber-400">🎯 Combinaisons de Couplés :</div>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                      <span class="bg-slate-900 border border-amber-500/40 px-2 py-0.5 rounded font-mono font-bold text-amber-300">${race.vipNumbers[0]} - ${race.vipNumbers[1]}</span>
+                      <span class="bg-slate-900 border border-amber-500/40 px-2 py-0.5 rounded font-mono font-bold text-amber-300">${race.vipNumbers[0]} - ${race.vipNumbers[5]}</span>
+                      <span class="bg-slate-900 border border-amber-500/40 px-2 py-0.5 rounded font-mono font-bold text-amber-300">${race.vipNumbers[1]} - ${race.vipNumbers[2]}</span>
+                    </div>
+                  </div>
+
+                  <div class="bg-slate-950/80 rounded-lg p-2.5 text-xs space-y-1.5 border border-amber-500/20">
+                    <p class="text-slate-200">🎯 <strong class="text-amber-400">Le Coup Sûr :</strong> Cheval N° ${race.sureBet}</p>
+                    <p class="text-slate-200">💣 <strong class="text-amber-400">L'Outsider Spéculatif :</strong> Cheval N° ${race.outsider}</p>
+                    ${race.lastMinuteNote ? `
+                      <div class="mt-2 pt-2 border-t border-slate-800 text-amber-200 text-[11px] leading-relaxed">
+                        ⚡ <strong>Tuyau Dernière Minute des balances :</strong> ${race.lastMinuteNote}
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : `
+                <!-- CONTENU VERROUILLÉ AVEC CTA RAPIDE -->
+                <div class="py-2 text-center">
+                  <div class="flex justify-center gap-1.5 mb-2.5">
+                    ${race.freeNumbers.map(n => `<div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-500 font-bold text-xs flex items-center justify-center">${n}</div>`).join('')}
+                    ${['?', '?', '?', '?', '?'].map(() => `<div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-600 font-bold text-xs flex items-center justify-center">🔒</div>`).join('')}
+                  </div>
+                  <p class="text-xs text-slate-300 mb-2">
+                    Choisissez votre formule ci-dessus ou débloquez le ticket en 1 clic :
+                  </p>
+                  <button type="button" onclick="openBetModalWith('COUPLE_500', '${race.id}')" class="w-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-bolt"></i> Débloquer 1 Couplé (500 FCFA) ou Trio / Quinté
+                  </button>
+                  <div class="flex items-center justify-center gap-3 mt-2 text-[10px] text-slate-400">
+                    <span><i class="fa-solid fa-shield-halved text-blue-400"></i> FedaPay</span>
+                    <span><i class="fa-solid fa-check text-emerald-400"></i> MoMo</span>
+                    <span><i class="fa-solid fa-check text-emerald-400"></i> Moov</span>
+                    <span><i class="fa-solid fa-check text-emerald-400"></i> Orange</span>
+                  </div>
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Rendu de l'onglet Bilan / Archives
+    function renderMobileHistoryArchives() {
+      const container = document.getElementById('historyArchivesContainer');
+      const finished = racesDatabase.filter(r => r.status === 'finished');
+
+      container.innerHTML = finished.map(r => `
+        <div class="bg-slate-900 rounded-xl p-3.5 border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[10px] px-2 py-0.5 rounded">
+              ${r.winBadge || 'ARRIVÉE VALIDÉE'}
+            </span>
+            <span class="text-[10px] text-slate-400">${r.date} • ${r.hippodrome} (${r.meetingCode})</span>
+          </div>
+          <h4 class="text-xs font-bold text-white">${r.title}</h4>
+          <div class="bg-slate-950 p-2 rounded text-xs space-y-1">
+            <p class="text-slate-400">Arrivée officielle : <strong class="text-amber-400 font-mono">${(r.officialResult || []).join(' - ')}</strong></p>
+            <p class="text-slate-400">Sélection VIP : <span class="text-slate-200 font-mono">${r.vipNumbers.join(', ')}</span></p>
+          </div>
+          <p class="text-[11px] text-emerald-400 font-semibold">
+            ${r.gainSummary || '✅ Pronostic officiel transparent disponible pour tous nos parieurs.'}
+          </p>
+        </div>
+      `).join('');
+    }
+
+    // ==========================================
+    // BACK-OFFICE ADMIN QUOTIDIEN
+    // ==========================================
+    function changeAdminSelectedDate(dateVal) {
+      state.adminDateKey = dateVal;
+      const d = new Date(dateVal + 'T00:00:00');
+      document.getElementById('adminDateLabel').innerText = formatFullDateDisplay(d);
+      renderAdminRacesTable();
+    }
+
+    function quickSelectAdminDate(type) {
+      if (type === 'yesterday') state.adminDateKey = yesterdayDateKey;
+      else if (type === 'today') state.adminDateKey = todayDateKey;
+      else if (type === 'tomorrow') state.adminDateKey = tomorrowDateKey;
+
+      document.getElementById('adminDateSelector').value = state.adminDateKey;
+      changeAdminSelectedDate(state.adminDateKey);
+    }
+
+    function renderAdminRacesTable() {
+      const tbody = document.getElementById('adminRacesTableBody');
+      const racesForDay = racesDatabase.filter(r => r.date === state.adminDateKey);
+
+      document.getElementById('adminTableSub').innerText = `${racesForDay.length} course(s) programmée(s) pour le ${state.adminDateKey}`;
+
+      if (racesForDay.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-6 text-slate-400">
+              Aucune course pour le ${state.adminDateKey}. Cliquez sur <strong>"Générer Automatiquement"</strong> ou <strong>"Ajouter une Course"</strong> ci-dessus.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = racesForDay.map(r => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-3 px-3 font-black text-amber-400">${r.meetingCode}</td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-white">${r.title}</div>
+            <div class="text-[11px] text-slate-400">${r.hippodrome} • ${r.discipline} (${r.distance}m)</div>
+          </td>
+          <td class="py-3 px-3 font-mono font-bold text-slate-300">${r.time}</td>
+          <td class="py-3 px-3">
+            <span class="bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-black font-mono">
+              ${r.freeNumbers.join(' - ')}
+            </span>
+          </td>
+          <td class="py-3 px-3">
+            <span class="bg-amber-950/60 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded font-black font-mono">
+              ${r.vipNumbers.join(' - ')}
+            </span>
+          </td>
+          <td class="py-3 px-3 text-slate-300">
+            Sûr: <strong class="text-amber-400 font-mono">${r.sureBet}</strong> | Out: <strong class="text-amber-400 font-mono">${r.outsider}</strong>
+          </td>
+          <td class="py-3 px-3">
+            ${r.status === 'finished' ? `
+              <span class="bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-bold">
+                ${r.winBadge || 'TERMINÉE'}
+              </span>
+            ` : `
+              <span class="bg-blue-900/60 text-blue-300 border border-blue-800 px-2 py-0.5 rounded font-bold">
+                À VENIR
+              </span>
+            `}
+          </td>
+          <td class="py-3 px-3 text-right">
+            ${r.status !== 'finished' ? `
+              <button onclick="openPublishResultModalFor('${r.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition">
+                🏆 Saisir Arrivée
+              </button>
+            ` : `
+              <span class="text-slate-500 text-[10px] font-mono">Arrivée: ${r.officialResult.join('-')}</span>
+            `}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Génération automatique des courses du jour en 1 clic
+    function autoGenerateDailyRaces() {
+      const targetDate = state.adminDateKey;
+      const hippodromes = ['Paris-Vincennes', 'Chantilly', 'Deauville', 'Enghien', 'ParisLongchamp', 'Auteuil'];
+      const chosenHippo = hippodromes[Math.floor(Math.random() * hippodromes.length)];
+
+      const newQ = {
+        id: `race-${Date.now()}-1`,
+        date: targetDate,
+        meetingCode: 'R1C1',
+        hippodrome: chosenHippo,
+        title: `Grand Prix de ${chosenHippo} — Quinté+ Officiel`,
+        discipline: 'Attelé',
+        distance: 2700,
+        partants: 16,
+        time: '15:15',
+        isQuinte: true,
+        status: 'upcoming',
+        freeNumbers: [Math.floor(Math.random() * 5 + 1), Math.floor(Math.random() * 5 + 6)],
+        vipNumbers: [4, 12, 7, 1, 9, 14, 2, 8].sort(() => 0.5 - Math.random()),
+        sureBet: 4,
+        outsider: 14,
+        lastMinuteNote: 'Bruit d\'écurie favorable pour les chevaux du premier échelon ce matin.',
+        analysis: 'Configuration idéale de terrain. Base solide pour les jeux combinés.',
+        officialResult: null,
+      };
+
+      const newSupport = {
+        id: `race-${Date.now()}-2`,
+        date: targetDate,
+        meetingCode: 'R1C4',
+        hippodrome: chosenHippo,
+        title: `Prix des Partenaires PMU`,
+        discipline: 'Plat',
+        distance: 2000,
+        partants: 14,
+        time: '17:00',
+        isQuinte: false,
+        status: 'upcoming',
+        freeNumbers: [2, 6],
+        vipNumbers: [2, 6, 9, 11, 3, 8],
+        sureBet: 2,
+        outsider: 9,
+        lastMinuteNote: 'Très affûté pour cette rentrée.',
+        analysis: 'Course rythmée avec de bonnes opportunités d\'outsiders.',
+        officialResult: null,
+      };
+
+      racesDatabase.unshift(newQ, newSupport);
+      renderAdminRacesTable();
+      renderMobileDailyRaces();
+
+      alert(`✅ Programme du jour (${targetDate}) généré avec succès ! Le Quinté+ et la course support ont été créés et sont immédiatement visibles sur l'application mobile des parieurs.`);
+    }
+
+    // Modal Saisie Arrivée Officielle
+    function openPublishResultModalFor(raceId) {
+      const race = racesDatabase.find(r => r.id === raceId);
+      if (!race) return;
+      state.selectedRaceForPublish = race;
+      document.getElementById('publishModalRaceTitle').innerText = `${race.meetingCode} • ${race.title} (${race.hippodrome})`;
+      document.getElementById('publishModalVipNotice').innerText = `Sélection VIP : [${race.vipNumbers.join(', ')}]`;
+      document.getElementById('publishModal').classList.remove('hidden');
+    }
+
+    function closePublishModal() {
+      document.getElementById('publishModal').classList.add('hidden');
+    }
+
+    function confirmOfficialArrival() {
+      const input = document.getElementById('officialArrivalInput').value;
+      const arrival = input.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+
+      if (arrival.length < 3) {
+        alert('Veuillez saisir au moins les 3 premiers chevaux de l\'arrivée officielle.');
+        return;
+      }
+
+      const race = state.selectedRaceForPublish;
+      if (!race) return;
+
+      race.status = 'finished';
+      race.officialResult = arrival;
+
+      // Calcul automatique des gains
+      const vip = race.vipNumbers;
+      let hitCount = 0;
+      arrival.forEach(n => { if (vip.includes(n)) hitCount++; });
+
+      let badge = 'NON PLACÉ';
+      let summary = '';
+      if (hitCount >= 5) {
+        badge = 'QUINTÉ DÉSORDRE ⭐';
+        if (vip[0] === arrival[0] && vip[1] === arrival[1] && vip[2] === arrival[2] && vip[3] === arrival[3] && vip[4] === arrival[4]) {
+          badge = 'QUINTÉ ORDRE 🏆';
+        }
+        summary = `✅ Les 5 chevaux de l'arrivée se trouvaient dans notre sélection VIP ! Gains validés.`;
+      } else if (hitCount >= 3) {
+        badge = 'TIERCÉ DÉSORDRE ✅';
+        summary = `✅ Tiercé gagnant validé dans la sélection VIP !`;
+      } else {
+        summary = `Résultats archivés pour l'historique public.`;
+      }
+
+      race.winBadge = badge;
+      race.gainSummary = summary;
+
+      closePublishModal();
+      renderAdminRacesTable();
+      renderMobileDailyRaces();
+      renderMobileHistoryArchives();
+
+      alert(`🏆 Arrivée officielle [${arrival.join(' - ')}] validée pour la course ${race.meetingCode} ! Résultat calculé : ${badge}. Notification de gains diffusée aux parieurs.`);
+    }
+
+    // Modal Nouvelle Course Manuelle
+    function openNewRaceModal() {
+      document.getElementById('newRaceModal').classList.remove('hidden');
+    }
+    function closeNewRaceModal() {
+      document.getElementById('newRaceModal').classList.add('hidden');
+    }
+
+    function handleAdminCreateRace(e) {
+      e.preventDefault();
+      const newR = {
+        id: `race-${Date.now()}`,
+        date: document.getElementById('modalNewRaceDate').value,
+        time: document.getElementById('modalNewRaceTime').value,
+        meetingCode: document.getElementById('modalNewRaceMeeting').value,
+        hippodrome: document.getElementById('modalNewRaceHippodrome').value,
+        title: document.getElementById('modalNewRaceTitle').value,
+        isQuinte: document.getElementById('modalNewRaceIsQuinte').checked,
+        discipline: 'Attelé',
+        distance: 2700,
+        partants: 16,
+        status: 'upcoming',
+        freeNumbers: document.getElementById('modalNewRaceFreeNums').value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)),
+        vipNumbers: document.getElementById('modalNewRaceVipNums').value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)),
+        sureBet: parseInt(document.getElementById('modalNewRaceSureBet').value, 10) || 1,
+        outsider: parseInt(document.getElementById('modalNewRaceOutsider').value, 10) || 2,
+        lastMinuteNote: document.getElementById('modalNewRaceLastMinute').value,
+        analysis: 'Pronostic calculé d\'après nos indicateurs statistiques quotidiens.',
+        officialResult: null,
+      };
+
+      racesDatabase.unshift(newR);
+      closeNewRaceModal();
+      renderAdminRacesTable();
+      renderMobileDailyRaces();
+
+      alert(`✅ Course ${newR.meetingCode} (${newR.title}) enregistrée et publiée pour le ${newR.date} !`);
+    }
+
+    function renderAdminTransactions() {
+      const tbody = document.getElementById('adminTransactionsBody');
+      tbody.innerHTML = transactionsDatabase.map(t => `
+        <tr>
+          <td class="py-3 px-3 text-slate-400 font-mono">${t.id}</td>
+          <td class="py-3 px-3 font-sans font-bold text-white">${t.phone}</td>
+          <td class="py-3 px-3"><span class="bg-amber-950 text-amber-300 font-sans font-black px-2 py-0.5 rounded">${t.operator}</span></td>
+          <td class="py-3 px-3 font-sans">${t.plan}</td>
+          <td class="py-3 px-3 font-sans font-bold text-emerald-400">${t.amount.toLocaleString()} FCFA</td>
+          <td class="py-3 px-3"><span class="bg-emerald-950 text-emerald-400 font-sans font-bold px-2 py-0.5 rounded">${t.status}</span></td>
+          <td class="py-3 px-3 text-right text-slate-400">${t.time}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Gestion du paiement Mobile Money
+    function openPaymentModal() {
+      document.getElementById('paymentModal').classList.remove('hidden');
+    }
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    // Gestion des Formules PMU & Multiplicateur Couplé
+    function openBetModalWith(formulaCode, raceId = null) {
+      state.selectedRaceId = raceId;
+      openPaymentModal();
+      if (formulaCode === 'COUPLE_500') selectBetFormula('COUPLE_500', 500);
+      else if (formulaCode === 'TRIO_DESORDRE') selectBetFormula('TRIO_DESORDRE', 2500);
+      else if (formulaCode === 'TRIO_ORDRE') selectBetFormula('TRIO_ORDRE', 8000);
+      else if (formulaCode === 'QUINTE_7CH') selectBetFormula('QUINTE_7CH', 5000);
+      else if (formulaCode === 'PASS_24H') selectBetFormula('PASS_24H', 10000);
+      else if (formulaCode === 'PASS_7D') selectBetFormula('PASS_7D', 34680);
+    }
+
+    function selectBetFormula(plan, basePrice) {
+      state.selectedPlan = plan;
+
+      ['planCardCouple', 'planCardTrioDesordre', 'planCardTrioOrdre', 'planCardQuinte7'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-slate-800 transition';
+      });
+
+      const map = {
+        COUPLE_500: 'planCardCouple',
+        TRIO_DESORDRE: 'planCardTrioDesordre',
+        TRIO_ORDRE: 'planCardTrioOrdre',
+        QUINTE_7CH: 'planCardQuinte7',
+      };
+      if (map[plan] && document.getElementById(map[plan])) {
+        document.getElementById(map[plan]).className = 'cursor-pointer bg-slate-950 p-2.5 rounded-xl border-2 border-amber-500 transition';
+      }
+
+      const calcBox = document.getElementById('coupleCalculatorBox');
+      if (plan === 'COUPLE_500') {
+        if (calcBox) calcBox.classList.remove('hidden');
+        state.planPrice = 500 * (state.coupleQty || 1);
+      } else {
+        if (calcBox) calcBox.classList.add('hidden');
+        state.planPrice = basePrice;
+      }
+
+      document.getElementById('payAmountLabel').innerText = `${state.planPrice.toLocaleString()} FCFA`;
+    }
+
+    function changeCoupleMultiplier(delta) {
+      state.coupleQty = Math.max(1, Math.min(20, (state.coupleQty || 1) + delta));
+      const total = 500 * state.coupleQty;
+      state.planPrice = total;
+
+      document.getElementById('coupleMultiplierDisplay').innerText = state.coupleQty;
+      document.getElementById('coupleQtyText').innerText = state.coupleQty;
+      document.getElementById('coupleCalculationText').innerText = `${total.toLocaleString()} FCFA`;
+      document.getElementById('coupleCardSub').innerText = `${state.coupleQty} combi(s) = ${total.toLocaleString()} F`;
+      document.getElementById('payAmountLabel').innerText = `${total.toLocaleString()} FCFA`;
+    }
+
+    function selectPlan(plan, price) {
+      selectBetFormula(plan, price);
+    }
+
+    function selectOperator(op) {
+      state.selectedOperator = op;
+      ['opMtn', 'opMoov', 'opOrange', 'opCeltiis', 'opCarte'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'bg-slate-950 text-slate-400 border border-slate-800 py-2 rounded-lg text-[9px] font-black flex flex-col items-center';
+      });
+      const map = {
+        MTN_MOMO: 'opMtn',
+        MOOV_MONEY: 'opMoov',
+        ORANGE_MONEY: 'opOrange',
+        CELTIIS: 'opCeltiis',
+        CARTE: 'opCarte',
+      };
+      if (map[op] && document.getElementById(map[op])) {
+        document.getElementById(map[op]).className = 'bg-blue-500/20 text-blue-300 border-2 border-blue-500 py-2 rounded-lg text-[9px] font-black flex flex-col items-center';
+      }
+
+      const inputLabel = document.getElementById('phoneInputLabel');
+      const inputField = document.getElementById('mobileNumberInput');
+      if (op === 'CARTE') {
+        inputLabel.innerText = '3. Numéro de Carte Bancaire (Visa / Mastercard) :';
+        inputField.value = '4111 2222 3333 4444';
+      } else {
+        inputLabel.innerText = `3. Numéro de téléphone débité (${op.replace('_', ' ')}) :`;
+        inputField.value = '+242 06 511 22 33';
+      }
+    }
+
+    // Copie du lien pour les parieurs
+    function copyBettorLink() {
+      const input = document.getElementById('shareableLinkInput');
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        const btnText = document.getElementById('copyLinkText');
+        const prev = btnText.innerText;
+        btnText.innerText = 'Copié ! ✅';
+        setTimeout(() => { btnText.innerText = prev; }, 2000);
+      }).catch(() => {
+        alert('Lien pour les parieurs : ' + input.value);
+      });
+    }
+
+    // Flux de paiement FedaPay
+    function triggerSimulationPayment() {
+      const btn = document.getElementById('btnConfirmPayment');
+      const num = document.getElementById('mobileNumberInput').value;
+      const opName = state.selectedOperator === 'CARTE' ? 'Carte Bancaire' : state.selectedOperator.replace('_', ' ');
+
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Simulation de paiement ${opName} (${num})...`;
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerHTML = `<i class="fa-solid fa-lock"></i> Simulation : paiement accepté (aucun débit réel)...`;
+
+        setTimeout(() => {
+          if (state.selectedPlan === 'PASS_24H' || state.selectedPlan === 'PASS_7D') {
+            const duration = state.selectedPlan === 'PASS_24H' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+            state.vipExpiresAt = Date.now() + duration;
+          } else if (state.selectedRaceId) {
+            state.purchases.push({ raceId: state.selectedRaceId, productCode: state.selectedPlan, purchasedAt: Date.now() });
+          }
+          state.todayRevenue += state.planPrice;
+          state.vipSubscribersCount += 1;
+
+          document.getElementById('mobileVipBadge').className = 'cursor-pointer bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5';
+          document.getElementById('vipBadgeText').innerText = state.vipExpiresAt && Date.now() < state.vipExpiresAt ? 'VIP ACTIF 👑' : 'ACHAT VALIDÉ';
+          document.getElementById('profileVipStatus').innerText = state.selectedPlan.startsWith('PASS_') ? `👑 Abonnement VIP actif jusqu’au ${new Date(state.vipExpiresAt).toLocaleString('fr-FR')}` : `Achat ${state.selectedPlan} validé pour la course sélectionnée.`;
+          document.getElementById('profileVipStatus').className = 'text-xs text-amber-400 font-bold mt-1';
+
+          document.getElementById('adminVipCount').innerText = state.vipSubscribersCount;
+          document.getElementById('adminTodayRevenue').innerText = `${state.todayRevenue.toLocaleString()} F`;
+
+          const fedapayTxId = `FP_TR_${Math.floor(1000000 + Math.random() * 9000000)}`;
+
+          transactionsDatabase.unshift({
+            id: fedapayTxId,
+            phone: num,
+            operator: `FedaPay (${opName})`,
+            plan: ({ COUPLE_500: 'Couplé', TRIO_DESORDRE: 'Trio désordre', TRIO_ORDRE: 'Trio ordre', QUINTE_7CH: 'Quinté 7 chevaux', PASS_24H: 'Pass VIP 24h', PASS_7D: 'Pass VIP 7 jours' })[state.selectedPlan] || state.selectedPlan,
+            amount: state.planPrice,
+            status: 'SUCCESS',
+            time: 'À l\'instant',
+          });
+
+          renderAdminTransactions();
+          renderMobileDailyRaces();
+          renderUpcomingFeed();
+          closePaymentModal();
+
+          btn.innerHTML = `<i class="fa-solid fa-lock"></i> Simuler le paiement (<span id="payAmountLabel">${state.planPrice.toLocaleString()} FCFA</span>)`;
+          btn.disabled = false;
+
+          alert(`🎉 Paiement FedaPay Validé avec Succès !\n\nRéf Transaction : ${fedapayTxId}\nMontant : ${state.planPrice.toLocaleString()} FCFA\n\n${state.selectedPlan.startsWith('PASS_') ? 'L’accès VIP est activé pendant la durée de votre pass.' : 'Le contenu acheté est débloqué uniquement pour la course sélectionnée.'}`);
+        }, 800);
+      }, 1400);
+    }
+
+    // Rendu du flux dédié : TOUTES LES COURSES À VENIR
+    function renderUpcomingFeed() {
+      const container = document.getElementById('upcomingFeedContainer');
+      if (!container) return;
+
+      const upcomingRaces = racesDatabase.filter(r => r.status === 'upcoming');
+
+      container.innerHTML = upcomingRaces.map((race, idx) => {
+        const isQuinte = race.isQuinte;
+        return `
+          <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-md space-y-3 relative overflow-hidden">
+            <div class="flex justify-between items-center">
+              <span class="${isQuinte ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'} font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
+                ${isQuinte ? '⭐ ÉVÉNEMENT QUINTÉ+' : '🏇 COURSE PMU'}
+              </span>
+              <div class="flex items-center gap-1.5 text-xs text-amber-400 font-bold">
+                <i class="fa-regular fa-clock"></i>
+                <span>${race.date === todayDateKey ? 'Aujourd\'hui' : race.date === tomorrowDateKey ? 'Demain' : race.date} à ${race.time}</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-xs font-bold text-amber-400">${race.meetingCode} • ${race.hippodrome} (${race.discipline || 'Attelé'})</div>
+              <h4 class="text-sm font-extrabold text-white mt-0.5">${race.title}</h4>
+              <p class="text-[11px] text-slate-400">${race.distance}m • ${race.partants} Partants • Départ prévu à ${race.time}</p>
+            </div>
+
+            <!-- Base Gratuite -->
+            <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-900/40">
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-[11px] font-black text-emerald-400 flex items-center gap-1">
+                  <i class="fa-solid fa-check-circle"></i> BASE GRATUITE (2 CHEVAUX) :
+                </span>
+                <span class="text-[9px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded">Accès Libre</span>
+              </div>
+              <div class="flex gap-2">
+                ${race.freeNumbers.map(n => `<div class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-black text-sm flex items-center justify-center shadow">${n}</div>`).join('')}
+              </div>
+              <p class="text-[10px] text-slate-400 mt-1.5 italic">« ${race.analysis || 'Base calculée d\'après nos indicateurs statistiques.'} »</p>
+            </div>
+
+            <!-- Pronostics spécifiques achetables à la carte -->
+            <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                  <i class="fa-solid fa-ticket text-amber-400"></i> Pronostics à acheter :
+                </span>
+                <span class="text-[9px] text-blue-400 font-bold">FedaPay ⚡</span>
+              </div>
+              <div class="grid grid-cols-2 gap-1.5 text-xs">
+                <button type="button" onclick="openBetModalWith('COUPLE_500', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-amber-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-amber-400 text-[10px]">🎯 1 Couplé</span>
+                    <span class="text-[8px] font-bold bg-amber-500/20 text-amber-300 px-1 rounded">500 F/comb</span>
+                  </div>
+                  <p class="text-[8px] text-slate-400 mt-0.5">Nbre combinaisons au choix</p>
+                </button>
+
+                <button type="button" onclick="openBetModalWith('TRIO_DESORDRE', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-emerald-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-emerald-300 text-[10px]">🥉 Trio Désordre</span>
+                    <span class="text-[8px] font-bold bg-emerald-500/20 text-emerald-300 px-1 rounded">2 500 F</span>
+                  </div>
+                  <p class="text-[8px] text-slate-400 mt-0.5">3 chevaux sans ordre</p>
+                </button>
+
+                <button type="button" onclick="openBetModalWith('TRIO_ORDRE', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-purple-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-purple-300 text-[10px]">🥇 Trio Ordre</span>
+                    <span class="text-[8px] font-bold bg-purple-500/20 text-purple-300 px-1 rounded">8 000 F</span>
+                  </div>
+                  <p class="text-[8px] text-slate-400 mt-0.5">Podium 1er-2e-3e exact</p>
+                </button>
+
+                <button type="button" onclick="openBetModalWith('QUINTE_7CH', '${race.id}')" class="text-left bg-slate-900 hover:bg-slate-800/80 border border-red-500/40 p-2 rounded-lg transition active:scale-95">
+                  <div class="flex justify-between items-center">
+                    <span class="font-black text-red-400 text-[10px]">🏆 Quinté 7 Ch.</span>
+                    <span class="text-[8px] font-bold bg-red-500/20 text-red-300 px-1 rounded">5 000 F</span>
+                  </div>
+                  <p class="text-[8px] text-slate-400 mt-0.5">Ticket resserré 7 partants</p>
+                </button>
+              </div>
+            </div>
+
+            ${renderPurchasedProducts(race)}
+
+            <!-- Sélection VIP déverrouillable via abonnement VIP -->
+            <div class="bg-gradient-to-b from-slate-950 to-blue-950/40 p-3 rounded-xl border border-blue-500/30">
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-[11px] font-black text-blue-300 flex items-center gap-1">
+                  <i class="fa-solid fa-gem text-amber-400"></i> PRONOSTICS DÉTAILLÉS & TICKETS :
+                </span>
+                <span class="text-[9px] font-bold ${hasVipAccess(race.id) ? 'bg-emerald-500/20 text-emerald-300' : 'bg-blue-500/20 text-blue-300'} px-1.5 py-0.5 rounded">
+                  ${hasVipAccess(race.id) ? 'DÉVERROUILLÉ ✅' : 'FEDAPAY 🔒'}
+                </span>
+              </div>
+
+              ${hasVipAccess(race.id) ? `
+                <div class="space-y-2 pt-1 text-xs">
+                  <!-- Quinté 7 chevaux -->
+                  <div class="bg-slate-900/90 p-2 rounded-lg border border-amber-500/30">
+                    <div class="text-[10px] font-black text-amber-400 mb-1">🏆 Quinté en 7 Chevaux :</div>
+                    <div class="flex flex-wrap gap-1.5">
+                      ${race.vipNumbers.slice(0, 7).map(n => `<div class="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow">${n}</div>`).join('')}
+                    </div>
+                  </div>
+
+                  <!-- Trio Ordre & Désordre -->
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <div class="bg-slate-900/90 p-2 rounded-lg border border-purple-500/20">
+                      <div class="text-[9px] font-bold text-purple-300">🥇 Trio Ordre :</div>
+                      <div class="font-mono font-bold text-amber-300 text-[11px] mt-0.5">1er: ${race.vipNumbers[0]} • 2e: ${race.vipNumbers[1]} • 3e: ${race.vipNumbers[2]}</div>
+                    </div>
+                    <div class="bg-slate-900/90 p-2 rounded-lg border border-emerald-500/20">
+                      <div class="text-[9px] font-bold text-emerald-300">🥉 Trio Désordre :</div>
+                      <div class="font-mono font-bold text-white text-[11px] mt-0.5">${race.vipNumbers.slice(0, 3).join(' - ')}</div>
+                    </div>
+                  </div>
+
+                  <!-- Couplés -->
+                  <div class="bg-slate-900/90 p-2 rounded-lg border border-amber-500/20">
+                    <div class="text-[9px] font-bold text-amber-400">🎯 Combinaisons de Couplés :</div>
+                    <div class="flex flex-wrap gap-1.5 mt-1 font-mono font-bold text-[11px] text-amber-300">
+                      <span class="bg-slate-950 px-2 py-0.5 rounded border border-amber-500/30">${race.vipNumbers[0]} - ${race.vipNumbers[1]}</span>
+                      <span class="bg-slate-950 px-2 py-0.5 rounded border border-amber-500/30">${race.vipNumbers[0]} - ${race.vipNumbers[4]}</span>
+                      <span class="bg-slate-950 px-2 py-0.5 rounded border border-amber-500/30">${race.vipNumbers[1]} - ${race.vipNumbers[2]}</span>
+                    </div>
+                  </div>
+
+                  <!-- Coup Sûr et Tuyaux -->
+                  <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 text-[11px] space-y-1">
+                    <div class="text-slate-200">🎯 Coup Sûr : <strong class="text-amber-400">Cheval N° ${race.sureBet}</strong> | 💣 Outsider : <strong class="text-amber-400">Cheval N° ${race.outsider}</strong></div>
+                    ${race.lastMinuteNote ? `<div class="text-[10px] text-amber-300 italic pt-1 border-t border-slate-800">⚡ Dernière Minute : ${race.lastMinuteNote}</div>` : ''}
+                  </div>
+                </div>
+              ` : `
+                <div class="space-y-2">
+                  <div class="flex gap-1.5 justify-center py-1">
+                    ${race.freeNumbers.map(n => `<div class="w-7 h-7 rounded-lg bg-slate-800 text-slate-500 font-bold text-xs flex items-center justify-center">${n}</div>`).join('')}
+                    ${['?', '?', '?', '?', '?', '?'].map(() => `<div class="w-7 h-7 rounded-lg bg-slate-800 text-slate-600 font-bold text-xs flex items-center justify-center">🔒</div>`).join('')}
+                  </div>
+                  <button onclick="openBetModalWith('COUPLE_500', '${race.id}')" class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30 transition transform active:scale-95">
+                    <i class="fa-solid fa-lock-open"></i> Débloquer 1 Couplé (500 F) ou Formules PMU
+                  </button>
+                  <div class="flex items-center justify-center gap-2 text-[9px] text-slate-400">
+                    <span><i class="fa-solid fa-shield-halved text-blue-400"></i> FedaPay</span>
+                    <span>• MTN MoMo • Moov • Orange • Celtiis • Visa</span>
+                  </div>
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function triggerBroadcastModal() {
+      const msg = prompt('Saisir le message de l\'alerte dernière minute à envoyer aux téléphones des abonnés VIP :', '⚡ TUYAU DERNIÈRE MINUTE QUINTÉ+ : Le n°14 déferré des 4 pieds est très appuyé aux balances !');
+      if (msg) {
+        alert(`📲 Notification Push diffusée instantanément à ${state.vipSubscribersCount} abonnés VIP !`);
+      }
+    }
+
+
+    // INTERACTIONS DE MAQUETTE UNIQUEMENT — aucune API ou publication réelle.
+    function turfAiLog(message) {
+      const el = document.getElementById('turfAiLog');
+      if (el) el.textContent = `${new Date().toLocaleString('fr-FR')} — ${message}`;
+    }
+    function turfAiDemoSync() {
+      document.getElementById('turfAiLastSync').textContent = new Date().toLocaleTimeString('fr-FR');
+      document.getElementById('turfAiRaceCount').textContent = String(racesDatabase.filter(r => r.date === state.adminDateKey).length);
+      turfAiLog('Simulation : aucune connexion externe. En production, l’API fournisseur devra fournir les données officielles.');
+    }
+    function turfAiDemoGenerate() {
+      document.getElementById('turfAiPendingCount').textContent = '2';
+      document.getElementById('turfAiDecisionLog').textContent = 'Un brouillon de démonstration a été ajouté. Il ne constitue pas un pronostic exploitable.';
+      turfAiLog('Brouillon fictif ajouté à la file de validation.');
+    }
+    function turfAiDemoDecision(decision) {
+      const labels = {approved:'Validation de démonstration enregistrée (aucune publication réelle).', rejected:'Proposition de démonstration rejetée.', revision:'Révision demandée dans la démonstration.'};
+      document.getElementById('turfAiDecisionLog').textContent = labels[decision];
+      turfAiLog(labels[decision] + ' En production, cette action sera authentifiée, auditée et exécutée côté serveur.');
+    }
+
+    // Switch de vues globales
+    function switchView(viewId) {
+      document.getElementById('viewMobile').classList.add('hidden');
+      document.getElementById('viewAdmin').classList.add('hidden');
+      document.getElementById('viewApi').classList.add('hidden');
+
+      ['btnViewMobile', 'btnViewAdmin', 'btnViewApi'].forEach(id => {
+        document.getElementById(id).className = 'px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white';
+      });
+
+      const activeClasses = 'px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-amber-500 text-slate-950 shadow';
+      if (viewId === 'mobile') {
+        document.getElementById('viewMobile').classList.remove('hidden');
+        document.getElementById('btnViewMobile').className = activeClasses;
+      } else if (viewId === 'admin') {
+        document.getElementById('viewAdmin').classList.remove('hidden');
+        document.getElementById('btnViewAdmin').className = activeClasses;
+      } else {
+        document.getElementById('viewApi').classList.remove('hidden');
+        document.getElementById('btnViewApi').className = activeClasses;
+      }
+    }
+
+    // Navigation onglets mobile
+    function switchMobileTab(tab) {
+      document.getElementById('mobileTabHome').classList.add('hidden');
+      document.getElementById('mobileTabUpcoming').classList.add('hidden');
+      document.getElementById('mobileTabHistory').classList.add('hidden');
+      document.getElementById('mobileTabProfile').classList.add('hidden');
+
+      ['tabBtnHome', 'tabBtnUpcoming', 'tabBtnHistory', 'tabBtnProfile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove('text-amber-500', 'text-white');
+          el.classList.add('text-slate-400');
+        }
+      });
+
+      if (tab === 'home') {
+        document.getElementById('mobileTabHome').classList.remove('hidden');
+        document.getElementById('tabBtnHome').classList.add('text-amber-500');
+      } else if (tab === 'upcoming') {
+        document.getElementById('mobileTabUpcoming').classList.remove('hidden');
+        document.getElementById('tabBtnUpcoming').classList.add('text-amber-500');
+        renderUpcomingFeed();
+      } else if (tab === 'history') {
+        document.getElementById('mobileTabHistory').classList.remove('hidden');
+        document.getElementById('tabBtnHistory').classList.add('text-amber-500');
+      } else {
+        document.getElementById('mobileTabProfile').classList.remove('hidden');
+        document.getElementById('tabBtnProfile').classList.add('text-amber-500');
+      }
+    }
+
+    // Compte à rebours Quinté+
+    let remainingSeconds = 14 * 60 + 20;
+    setInterval(() => {
+      if (remainingSeconds > 0) {
+        remainingSeconds--;
+        const m = Math.floor(remainingSeconds / 60);
+        const s = remainingSeconds % 60;
+        if (state.currentFilterDay === 'today') {
+          document.getElementById('countdownDisplay').innerText = `00h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+        }
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

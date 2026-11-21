@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum UserRole {
+  CUSTOMER
+  EDITOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum RaceStatus {
+  DISCOVERED
+  VERIFIED
+  SCHEDULED
+  LIVE
+  FINISHED
+  RESULT_CONFIRMED
+  CANCELLED
+  POSTPONED
+  DATA_QUARANTINED
+}
+
+enum PredictionStatus {
+  DRAFT
+  AI_GENERATED
+  PENDING_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+  REJECTED
+  REVISION_REQUESTED
+  SUPERSEDED
+  WITHDRAWN
+  REVIEW_REQUIRED
+}
+
+enum ProductType {
+  FREE
+  COUPLE
+  TRIO_DISORDER
+  TRIO_ORDER
+  QUINTE_7
+  VIP_24H
+  VIP_7D
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  role         UserRole @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     Session[]
+  orders      Order[]
+  entitlements Entitlement[]
+  reviews     PredictionReview[]
+  auditLogs   AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Provider {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  syncRuns  SyncRun[]
+}
+
+model SyncRun {
+  id          String    @id @default(cuid())
+  providerId  String
+  status      String
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  recordsRead Int       @default(0)
+  error       String?
+  provider    Provider  @relation(fields: [providerId], references: [id])
+}
+
+model Race {
+  id              String     @id @default(cuid())
+  provider        String
+  providerRaceId  String
+  country         String
+  venue           String
+  meetingName     String?
+  name            String
+  startsAt        DateTime
+  distanceMeters  Int?
+  surface         String?
+  status          RaceStatus @default(DISCOVERED)
+  sourceUpdatedAt DateTime?
+  fetchedAt       DateTime   @default(now())
+  rawPayloadHash  String?
+
+  runners     Runner[]
+  predictions Prediction[]
+
+  @@unique([provider, providerRaceId])
+  @@index([startsAt, country])
+}
+
+model Runner {
+  id               String  @id @default(cuid())
+  raceId           String
+  providerRunnerId String?
+  number           Int?
+  horseName        String
+  jockeyName       String?
+  trainerName      String?
+  isNonRunner      Boolean @default(false)
+  sourceUpdatedAt  DateTime?
+
+  race Race @relation(fields: [raceId], references: [id], onDelete: Cascade)
+
+  @@index([raceId, number])
+}
+
+model Prediction {
+  id           String           @id @default(cuid())
+  raceId       String
+  status       PredictionStatus @default(DRAFT)
+  title        String
+  analysis     String
+  selections   Json
+  evidence     Json
+  modelName    String?
+  modelVersion String?
+  inputSnapshot Json?
+  generatedAt  DateTime?
+  approvedAt   DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  race    Race                @relation(fields: [raceId], references: [id])
+  reviews PredictionReview[]
+
+  @@index([status, createdAt])
+}
+
+model PredictionReview {
+  id           String   @id @default(cuid())
+  predictionId String
+  userId       String
+  decision     String
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  prediction Prediction @relation(fields: [predictionId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+}
+
+model Product {
+  id       String      @id @default(cuid())
+  code     ProductType @unique
+  label    String
+  priceXof Int
+  active   Boolean     @default(true)
+
+  orders Order[]
+}
+
+model Payment {
+  id            String  @id @default(cuid())
+  orderId       String
+  providerName  String
+  externalId    String  @unique
+  status        PaymentStatus @default(PENDING)
+  amountXof     Int
+  currency      String  @default("XOF")
+  rawEvent      Json?
+  createdAt     DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Order {
+  id          String        @id @default(cuid())
+  userId      String
+  productId   String
+  raceId      String?
+  amountXof   Int
+  currency    String        @default("XOF")
+  status      PaymentStatus @default(PENDING)
+  providerRef String?       @unique
+  createdAt   DateTime      @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+  entitlement  Entitlement?
+  payments     Payment[]
+}
+
+model Entitlement {
+  id        String      @id @default(cuid())
+  userId    String
+  orderId   String?     @unique
+  product   ProductType
+  raceId    String?
+  startsAt  DateTime    @default(now())
+  expiresAt DateTime?
+
+  user  User   @relation(fields: [userId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([userId, expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}

@@ -1,0 +1,24 @@
+# Caddy — HTTPS automatique + reverse proxy vers l'app Next.js.
+# Le port "web" n'est plus exposé publiquement (voir docker-compose.yml) :
+# seul Caddy écoute sur 80/443.
+
+{$DOMAIN} {
+	# HTTPS automatique (certificats Let's Encrypt gérés par Caddy).
+
+	# Sécurité : en-têtes de base
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Webhooks paiements : corps brut, sans buffer ni limite agressive
+	reverse_proxy /api/payments/* web:3000 {
+		flush_interval -1
+	}
+
+	# Tout le reste
+	reverse_proxy web:3000
+}
