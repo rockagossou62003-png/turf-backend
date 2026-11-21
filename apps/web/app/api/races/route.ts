@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { canReadPrediction, projectPrediction } from "@/lib/authz";
+import { getVisibleRaceProviders } from "@/lib/race-providers";
 
 /** Liste des courses à venir (publique). */
 export async function GET(request: Request) {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
   const races = await prisma.race.findMany({
     where: {
-      provider: process.env.HORSE_RACING_PROVIDER ?? "demo",
+      provider: { in: getVisibleRaceProviders() },
       ...(country ? { country } : {}),
       ...(includeFinished ? {} : { status: { in: ["SCHEDULED", "VERIFIED", "LIVE"] } }),
     },

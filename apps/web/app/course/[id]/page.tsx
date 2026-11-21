@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/session";
 import { canReadPrediction, projectPrediction } from "@/lib/authz";
 import BuyButton from "@/components/BuyButton";
 import type { ProductType } from "@prisma/client";
+import { getVisibleRaceProviders } from "@/lib/race-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,8 @@ const PRODUCT_LABELS: Record<string, string> = {
 
 export default async function CoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const race = await prisma.race.findUnique({
-    where: { id, provider: process.env.HORSE_RACING_PROVIDER ?? "demo" },
+  const race = await prisma.race.findFirst({
+    where: { id, provider: { in: getVisibleRaceProviders() } },
     include: {
       runners: { orderBy: [{ isNonRunner: "asc" }, { number: "asc" }] },
       predictions: { where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" } },
@@ -51,7 +52,7 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
       <p className="muted">
         {new Date(race.startsAt).toLocaleString("fr-FR")}
         {race.distanceMeters ? ` · ${race.distanceMeters} m` : ""} {race.surface ? `· ${race.surface}` : ""} · statut :{" "}
-        {race.status}
+        {race.status} {race.provider === "manual" ? "· saisie manuelle" : ""}
       </p>
 
       <section className="panel">

@@ -32,8 +32,8 @@ export async function GET() {
       racingProvider,
       note:
         racingProvider === "theracingapi"
-          ? "The Racing API is selected; a staff sync is required to import current racecards."
-          : "No live racing feed is configured.",
+          ? "The Racing API is selected; staff can sync it or add authorized races manually."
+          : "No live racing feed is configured; staff can add authorized races manually.",
     },
     { status: healthy ? 200 : 503 },
   );

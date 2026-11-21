@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, isStaff } from "@/lib/session";
 import AdminQueue from "@/components/AdminQueue";
 import AdminOps from "@/components/AdminOps";
+import AdminManualRaceForm from "@/components/AdminManualRaceForm";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,11 @@ export default async function AdminPage() {
       <section className="panel">
         <h2>Opérations</h2>
         <AdminOps providerCode={process.env.HORSE_RACING_PROVIDER ?? "demo"} />
+      </section>
+
+      <section className="panel">
+        <h2>Saisie manuelle des courses</h2>
+        <AdminManualRaceForm />
       </section>
 
       <section className="panel">

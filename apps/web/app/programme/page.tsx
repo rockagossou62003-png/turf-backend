@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { canReadPrediction, projectPrediction } from "@/lib/authz";
+import { getVisibleRaceProviders } from "@/lib/race-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function ProgrammePage() {
 
   const races = await prisma.race.findMany({
     where: {
-      provider: process.env.HORSE_RACING_PROVIDER ?? "demo",
+      provider: { in: getVisibleRaceProviders() },
       status: { in: ["SCHEDULED", "VERIFIED", "LIVE", "FINISHED", "RESULT_CONFIRMED"] },
     },
     orderBy: { startsAt: "asc" },
@@ -39,8 +40,8 @@ export default async function ProgrammePage() {
       <div className="eyebrow">Programme</div>
       <h1 style={{ fontSize: 38 }}>Réunions et courses</h1>
       <p className="muted">
-        Les données affichées proviennent de la base TURF PRO. En mode démonstration, la course marquée
-        « démo » est fictive et sert à valider les règles d’accès.
+        Les courses peuvent être synchronisées depuis le fournisseur configuré ou saisies manuellement par l’équipe.
+        En mode démonstration, la course marquée « démo » est fictive et sert à valider les règles d’accès.
       </p>
       <div className="grid" style={{ gridTemplateColumns: "1fr" }}>
         {shaped.length === 0 && <p className="muted">Aucune course programmée.</p>}
@@ -56,7 +57,10 @@ export default async function ProgrammePage() {
                   {race.distanceMeters ? ` · ${race.distanceMeters} m` : ""}
                 </span>
               </div>
-              <span className="pill">{race.status}</span>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                {race.provider === "manual" && <span className="pill">Saisie manuelle</span>}
+                <span className="pill">{race.status}</span>
+              </div>
             </div>
             {predictions.length > 0 && (
               <ul style={{ margin: "14px 0 0", paddingLeft: 18 }}>

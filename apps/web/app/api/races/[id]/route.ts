@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { canReadPrediction, projectPrediction } from "@/lib/authz";
+import { getVisibleRaceProviders } from "@/lib/race-providers";
 
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
 
-  const race = await prisma.race.findUnique({
-    where: { id, provider: process.env.HORSE_RACING_PROVIDER ?? "demo" },
+  const race = await prisma.race.findFirst({
+    where: { id, provider: { in: getVisibleRaceProviders() } },
     include: {
       runners: { orderBy: [{ isNonRunner: "asc" }, { number: "asc" }] },
       predictions: { where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" } },

@@ -56,6 +56,7 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
 
   const payloadHash = hashPayload(race);
   const isFrenchProvider = providerCode === "theracingapi";
+  const isManualProvider = providerCode === "manual";
   const existing = await prisma.race.findUnique({
     where: { provider_providerRaceId: { provider: providerCode, providerRaceId: race.providerRaceId } },
     include: { runners: true },
@@ -71,8 +72,11 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
     const nowNonRunner = race.runners.some(
       (r) => r.isNonRunner && previouslyDeclared.has(r.horseName.toLowerCase()),
     );
-    criticalChange = timeChanged || nowNonRunner;
+    const manualDataChanged = isManualProvider && existing.rawPayloadHash !== payloadHash;
+    criticalChange = timeChanged || nowNonRunner || manualDataChanged;
   }
+  const requiresQuarantine = criticalChange && !isManualProvider;
+  const manualRaceIsTerminal = ["FINISHED", "RESULT_CONFIRMED", "CANCELLED"].includes(existing?.status ?? "");
 
   const upserted = await prisma.race.upsert({
     where: { provider_providerRaceId: { provider: providerCode, providerRaceId: race.providerRaceId } },
@@ -86,7 +90,7 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       startsAt,
       distanceMeters: race.distanceMeters ?? null,
       surface: race.surface ?? null,
-      status: criticalChange ? "DATA_QUARANTINED" : isFrenchProvider ? "SCHEDULED" : "DISCOVERED",
+      status: requiresQuarantine ? "DATA_QUARANTINED" : isFrenchProvider || isManualProvider ? "SCHEDULED" : "DISCOVERED",
       sourceUpdatedAt: new Date(),
       rawPayloadHash: payloadHash,
     },
@@ -99,14 +103,16 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       surface: race.surface ?? null,
       sourceUpdatedAt: new Date(),
       rawPayloadHash: payloadHash,
-      ...(criticalChange ? { status: "DATA_QUARANTINED" as const } : {}),
-      ...(!criticalChange && existing?.status === "DISCOVERED" && isFrenchProvider
+      ...(requiresQuarantine ? { status: "DATA_QUARANTINED" as const } : {}),
+      ...(!requiresQuarantine && isManualProvider && !manualRaceIsTerminal ? { status: "SCHEDULED" as const } : {}),
+      ...(!requiresQuarantine && existing?.status === "DISCOVERED" && isFrenchProvider
         ? { status: "SCHEDULED" as const }
         : {}),
     },
   });
 
   let runnersUpserted = 0;
+  const retainedRunnerIds: string[] = [];
   for (const r of race.runners) {
     const data = {
       number: r.number ?? null,
@@ -121,20 +127,30 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       where: { raceId: upserted.id, horseName: { equals: r.horseName } },
     });
     if (byName) {
-      await prisma.runner.update({ where: { id: byName.id }, data });
+      const updated = await prisma.runner.update({ where: { id: byName.id }, data });
+      retainedRunnerIds.push(updated.id);
     } else if (r.number != null) {
       const byNumber = await prisma.runner.findFirst({
         where: { raceId: upserted.id, number: r.number },
       });
       if (byNumber) {
-        await prisma.runner.update({ where: { id: byNumber.id }, data });
+        const updated = await prisma.runner.update({ where: { id: byNumber.id }, data });
+        retainedRunnerIds.push(updated.id);
       } else {
-        await prisma.runner.create({ data: { ...data, raceId: upserted.id } });
+        const created = await prisma.runner.create({ data: { ...data, raceId: upserted.id } });
+        retainedRunnerIds.push(created.id);
       }
     } else {
-      await prisma.runner.create({ data: { ...data, raceId: upserted.id } });
+      const created = await prisma.runner.create({ data: { ...data, raceId: upserted.id } });
+      retainedRunnerIds.push(created.id);
     }
     runnersUpserted++;
+  }
+
+  if (isManualProvider) {
+    await prisma.runner.deleteMany({
+      where: { raceId: upserted.id, id: { notIn: retainedRunnerIds } },
+    });
   }
 
   if (criticalChange) {
@@ -142,7 +158,12 @@ async function upsertRace(race: IncomingRace, providerCode: string) {
       where: { raceId: upserted.id, status: "PUBLISHED" },
       data: { status: "WITHDRAWN" },
     });
-    return { upserted, runnersUpserted, quarantined: 1, predictionsWithdrawn: withdrawn.count };
+    return {
+      upserted,
+      runnersUpserted,
+      quarantined: requiresQuarantine ? 1 : 0,
+      predictionsWithdrawn: withdrawn.count,
+    };
   }
   return { upserted, runnersUpserted, quarantined: 0, predictionsWithdrawn: 0 };
 }
@@ -159,10 +180,18 @@ export async function runSync(
 ): Promise<SyncResult> {
   const provider = await prisma.provider.upsert({
     where: { code: providerCode },
-    update: { enabled: providerCode !== "demo" },
+    update: {
+      enabled: providerCode !== "demo",
+      ...(providerCode === "manual" ? { name: "Saisie manuelle" } : {}),
+    },
     create: {
       code: providerCode,
-      name: providerCode === "theracingapi" ? "The Racing API" : providerCode,
+      name:
+        providerCode === "theracingapi"
+          ? "The Racing API"
+          : providerCode === "manual"
+            ? "Saisie manuelle"
+            : providerCode,
       enabled: providerCode !== "demo",
     },
   });

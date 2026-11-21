@@ -38,8 +38,8 @@ export default function AdminOps({ providerCode }: { providerCode: string }) {
             : providerCode === "demo"
               ? "Synchroniser (démo)"
               : providerCode === "theracingapi"
-                  ? "Synchroniser (courses françaises)"
-                  : `Synchroniser (${providerCode})`}
+                ? "Synchroniser via The Racing API"
+                : `Synchroniser (${providerCode})`}
         </button>
         <button className="btn btn-secondary" disabled={busy !== null} onClick={() => call("/api/admin/generate", "generate")}>
           {busy === "generate" ? "Génération…" : "Générer les analyses"}
@@ -53,9 +53,10 @@ export default function AdminOps({ providerCode }: { providerCode: string }) {
       {result && (
         <pre style={{ marginTop: 10, fontSize: 12, whiteSpace: "pre-wrap", color: "#9fb4cc" }}>{result}</pre>
       )}
-           <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+      <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
         La synchronisation applique les contrôles qualité (non-partants, horaires) et met en quarantaine
         les courses modifiées de façon critique. Les analyses générées restent en attente de validation humaine.
+        Tu peux aussi saisir une course autorisée manuellement dans le formulaire ci-dessous.
       </p>
     </div>
   );
