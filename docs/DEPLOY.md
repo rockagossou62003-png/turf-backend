@@ -91,13 +91,12 @@ docker compose exec -T postgres pg_restore -U turfpro -d turfpro --clean < backu
 
 ## 7. FedaPay
 
-1. Dans le tableau de bord FedaPay, commencez avec le compte **Sandbox** et sa clé secrète de test.
-2. Définissez `FEDAPAY_API_BASE=https://sandbox-api.fedapay.com/v1` et `FEDAPAY_SECRET_KEY` avec la clé sandbox.
-3. Créez un webhook sandbox à `https://votre-domaine.com/api/payments/fedapay`, abonné aux événements de transaction. Copiez le secret propre à ce webhook dans `FEDAPAY_WEBHOOK_SECRET`.
-4. Redémarrez l’application, vérifiez `/api/health` (`payments: "configured"`) et terminez un paiement de test. L’accès n’est accordé qu’après le webhook signé.
-5. Pour accepter de vrais paiements, passez le compte FedaPay en mode Live et remplacez **les deux secrets** par les valeurs Live correspondantes. Utilisez `FEDAPAY_API_BASE=https://api.fedapay.com/v1`, puis testez à nouveau avant d’annoncer les paiements comme disponibles.
+1. Validez d’abord l’intégration avec le compte **Sandbox**, la clé de test et `FEDAPAY_API_BASE=https://sandbox-api.fedapay.com/v1`, dans un environnement non-production.
+2. Dans le tableau de bord FedaPay **Live**, créez un webhook pour `https://votre-domaine.com/api/payments/fedapay` et abonnez-le aux événements de transaction. Copiez son secret Live unique.
+3. Dans les variables d’environnement de production, définissez la clé secrète Live dans `FEDAPAY_SECRET_KEY`, le secret Live du webhook dans `FEDAPAY_WEBHOOK_SECRET` et `FEDAPAY_API_BASE=https://api.fedapay.com/v1`.
+4. Après le redéploiement, `/api/health` doit afficher `payments: "live"` et les offres doivent indiquer FedaPay. L’accès est accordé uniquement après confirmation par le webhook signé.
 
-En production, si un secret manque ou si l’URL API est invalide, les commandes échouent sans créer de commande simulée. Ne partagez jamais les clés dans le chat ni dans Git.
+La production bloque volontairement les clés ou l’API Sandbox. Si un secret manque ou si l’URL API est invalide, une commande échoue sans être simulée. Ne partagez jamais les clés dans le chat ni dans Git.
 
 ## 8. Données hippiques françaises
 
