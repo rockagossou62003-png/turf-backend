@@ -3,7 +3,9 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/authz";
 
-const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET ?? "dev-simulation-secret";
+const WEBHOOK_SECRET =
+  process.env.PAYMENT_WEBHOOK_SECRET ??
+  (process.env.NODE_ENV === "production" ? "" : "dev-simulation-secret");
 
 function verifySignature(rawBody: string, signature: string | null): boolean {
   if (!signature) return false;
@@ -22,6 +24,10 @@ function verifySignature(rawBody: string, signature: string | null): boolean {
  * Payload : { eventId, orderId, status: "SUCCEEDED"|"FAILED", amountXof }
  */
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "SIMULATION_DESACTIVE_EN_PRODUCTION" }, { status: 404 });
+  }
+
   const raw = await request.text();
   const signature = request.headers.get("x-payment-signature");
 

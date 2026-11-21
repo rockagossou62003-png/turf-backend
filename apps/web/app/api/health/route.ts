@@ -2,6 +2,7 @@ import { HeadBucketCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ASSETS_BUCKET, getObjectStorageClient } from "@/lib/object-storage";
+import { isFedaPayConfigured, isFedaPayLiveConfigured } from "@/lib/fedapay";
 
 export async function GET() {
   const services = { postgres: "ok", objectStorage: "ok" };
@@ -28,6 +29,11 @@ export async function GET() {
       app: "TURF PRO",
       status: healthy ? "ok" : "degraded",
       services,
+      payments: isFedaPayLiveConfigured()
+        ? "live"
+        : isFedaPayConfigured()
+          ? "sandbox"
+          : "not_configured",
       environment: process.env.NODE_ENV ?? "development",
       racingProvider,
       note:

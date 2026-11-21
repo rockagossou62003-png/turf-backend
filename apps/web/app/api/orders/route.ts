@@ -3,17 +3,20 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { logAudit } from "@/lib/authz";
-import { isFedaPayConfigured, createFedapayTransaction } from "@/lib/fedapay";
+import { isFedaPayConfigured, isFedaPayLiveConfigured, createFedapayTransaction } from "@/lib/fedapay";
 
 /**
  * Création de commande.
- * - FedaPay configuré (FEDAPAY_SECRET_KEY) : création d'une transaction réelle
- *   (sandbox ou live) ; le droit n'est accordé QUE par le webhook signé.
- * - Sinon : mode simulation locale, commande PENDING + webhook de démo signé.
+ * - FedaPay configuré : création d'une transaction et retour de son lien.
+ * - Sinon : simulation locale uniquement hors production.
  */
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+
+  if (process.env.NODE_ENV === "production" && !isFedaPayLiveConfigured()) {
+    return NextResponse.json({ error: "PAIEMENT_NON_CONFIGURE" }, { status: 503 });
+  }
 
   const body = await request.json().catch(() => null);
   const productCode = typeof body?.productCode === "string" ? body.productCode : "";
@@ -51,10 +54,10 @@ export async function POST(request: Request) {
     amountXof: order.amountXof,
   });
 
-  // FedaPay réel : création de la transaction serveur, retour de l'URL de paiement.
+  // FedaPay creates the charge; only its signed webhook grants access.
   if (isFedaPayConfigured()) {
     try {
-      const origin = new URL(request.url).origin;
+      const origin = (process.env.APP_URL ?? new URL(request.url).origin).replace(/\/+$/, "");
       const tx = await createFedapayTransaction({
         orderId: order.id,
         description: `TURF PRO — ${product.label}`,
@@ -77,6 +80,10 @@ export async function POST(request: Request) {
         { status: 201 },
       );
     } catch (e) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: "FAILED" },
+      });
       await logAudit(user.id, "FEDAPAY_TRANSACTION_FAILED", "Order", order.id, {
         error: e instanceof Error ? e.message : String(e),
       });
@@ -84,7 +91,11 @@ export async function POST(request: Request) {
     }
   }
 
-  // Mode simulation locale : référence de démo, le webhook signé fera le reste.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "PAIEMENT_NON_CONFIGURE" }, { status: 503 });
+  }
+
+  // Local development only: simulation is never used for production orders.
   await prisma.order.update({
     where: { id: order.id },
     data: { providerRef: `SIM-${randomUUID()}` },

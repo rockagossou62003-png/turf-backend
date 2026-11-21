@@ -1,17 +1,65 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-/**
- * Client FedaPay côté serveur (mode sandbox ou live).
- *
- * Règle produit : le paiement est confirmé UNIQUEMENT par webhook signé,
- * jamais par le retour navigateur. Si FEDAPAY_SECRET_KEY n'est pas
- * configuré, l'application reste en mode simulation locale (webhook démo).
- */
+const DEFAULT_FEDAPAY_API_BASE = "https://api.fedapay.com/v1";
 
-const FEDAPAY_API_BASE = process.env.FEDAPAY_API_BASE ?? "https://api.fedapay.com/v1";
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+}
+
+function getFedapayApiBase(): string {
+  const raw = process.env.FEDAPAY_API_BASE ?? DEFAULT_FEDAPAY_API_BASE;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("FEDAPAY_API_BASE_INVALIDE");
+  }
+
+  const allowedHosts = new Set(["api.fedapay.com", "sandbox-api.fedapay.com"]);
+  if (
+    url.protocol !== "https:" ||
+    !allowedHosts.has(url.hostname) ||
+    !["/v1", "/v1/"].includes(url.pathname) ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("FEDAPAY_API_BASE_INVALIDE");
+  }
+
+  return `${url.origin}/v1`;
+}
+
+function isValidPaymentUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "fedapay.com" || url.hostname.endsWith(".fedapay.com"))
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function isFedaPayConfigured(): boolean {
-  return Boolean(process.env.FEDAPAY_SECRET_KEY);
+  if (!process.env.FEDAPAY_SECRET_KEY?.trim() || !process.env.FEDAPAY_WEBHOOK_SECRET?.trim()) {
+    return false;
+  }
+  try {
+    getFedapayApiBase();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isFedaPayLiveConfigured(): boolean {
+  return isFedaPayConfigured() && getFedapayApiBase() === DEFAULT_FEDAPAY_API_BASE;
 }
 
 export type FedapayTransaction = {
@@ -32,10 +80,11 @@ export async function createFedapayTransaction(params: {
   customerEmail: string;
   callbackUrl: string;
 }): Promise<FedapayTransaction> {
-  const secret = process.env.FEDAPAY_SECRET_KEY;
+  const secret = process.env.FEDAPAY_SECRET_KEY?.trim();
   if (!secret) throw new Error("FEDAPAY_SECRET_KEY_ABSENT");
 
-  const res = await fetch(`${FEDAPAY_API_BASE}/transactions`, {
+  const apiBase = getFedapayApiBase();
+  const res = await fetch(`${apiBase}/transactions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${secret}`,
@@ -55,29 +104,56 @@ export async function createFedapayTransaction(params: {
   if (!res.ok) {
     throw new Error(`FEDAPAY_ERROR_${res.status}`);
   }
-  const data = (await res.json()) as {
-    "v1/transaction"?: { id: number | string; status?: string };
-    token?: string;
-  };
-  const tx = data["v1/transaction"];
-  if (!tx?.id || !data.token) throw new Error("FEDAPAY_REPONSE_INATTENDUE");
+  const transactionBody = asRecord(await res.json());
+  const transaction =
+    asRecord(transactionBody?.["v1/transaction"]) ??
+    asRecord(transactionBody?.data) ??
+    transactionBody;
+  const transactionId = transaction?.id;
+  if (typeof transactionId !== "string" && typeof transactionId !== "number") {
+    throw new Error("FEDAPAY_REPONSE_INATTENDUE");
+  }
 
-  const paymentUrl = `${FEDAPAY_API_BASE.replace("/v1", "")}/v1/payment-links/${data.token}`;
+  const tokenResponse = await fetch(
+    `${apiBase}/transactions/${encodeURIComponent(String(transactionId))}/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    },
+  );
+  if (!tokenResponse.ok) {
+    throw new Error(`FEDAPAY_TOKEN_ERROR_${tokenResponse.status}`);
+  }
+  const tokenBody = asRecord(await tokenResponse.json());
+  const tokenResult =
+    asRecord(tokenBody?.["v1/token"]) ??
+    asRecord(tokenBody?.data) ??
+    tokenBody;
+  const paymentUrl = tokenResult?.url;
+  if (!isValidPaymentUrl(paymentUrl)) {
+    throw new Error("FEDAPAY_URL_PAIEMENT_INVALIDE");
+  }
+
   return {
-    transactionId: String(tx.id),
-    paymentUrl,
+    transactionId: String(transactionId),
+    paymentUrl: paymentUrl,
     amountXof: params.amountXof,
-    status: tx.status ?? "pending",
+    status: typeof transaction?.status === "string" ? transaction.status : "pending",
   };
 }
 
 /**
  * Vérifie la signature du webhook FedaPay.
- * Format attendu : t=<timestamp>,v1=<hmac-hex> sur le corps brut,
+ * Format attendu : t=<timestamp>,s=<hmac-hex> sur le corps brut,
  * clé FEDAPAY_WEBHOOK_SECRET (header `x-fedapay-signature`).
  */
 export function verifyFedapaySignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = process.env.FEDAPAY_WEBHOOK_SECRET;
+  const secret = process.env.FEDAPAY_WEBHOOK_SECRET?.trim();
   if (!secret || !signatureHeader) return false;
 
   const parts = signatureHeader.split(",").reduce<Record<string, string>>((acc, part) => {
@@ -85,13 +161,12 @@ export function verifyFedapaySignature(rawBody: string, signatureHeader: string 
     if (k && v) acc[k.trim()] = v.trim();
     return acc;
   }, {});
-  const timestamp = parts["t"];
-  const received = parts["v1"];
-  if (!timestamp || !received) return false;
+  const timestamp = Number(parts.t);
+  const received = parts.s;
+  if (!Number.isSafeInteger(timestamp) || !received) return false;
 
-  // Rejeu : refuse les événements de plus de 5 minutes.
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
-  if (!Number.isFinite(age) || age > 300) return false;
+  const age = Date.now() / 1000 - timestamp;
+  if (!Number.isFinite(age) || age < -300 || age > 300) return false;
 
   const expected = createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
   const a = Buffer.from(expected);

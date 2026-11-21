@@ -1,25 +1,46 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createHmac } from "crypto";
-import { verifyFedapaySignature, isFedaPayConfigured } from "@/lib/fedapay";
+import {
+  createFedapayTransaction,
+  verifyFedapaySignature,
+  isFedaPayConfigured,
+  isFedaPayLiveConfigured,
+} from "@/lib/fedapay";
 
 const SECRET = "test-webhook-secret";
 const SECRET_ENV = "FEDAPAY_WEBHOOK_SECRET";
+const API_SECRET_ENV = "FEDAPAY_SECRET_KEY";
+const API_BASE_ENV = "FEDAPAY_API_BASE";
+const originalEnv = {
+  [SECRET_ENV]: process.env[SECRET_ENV],
+  [API_SECRET_ENV]: process.env[API_SECRET_ENV],
+  [API_BASE_ENV]: process.env[API_BASE_ENV],
+};
 
 function sign(raw: string, ts: number) {
-  return `t=${ts},v1=${createHmac("sha256", SECRET).update(`${ts}.${raw}`).digest("hex")}`;
+  return `t=${ts},s=${createHmac("sha256", SECRET).update(`${ts}.${raw}`).digest("hex")}`;
 }
 
 describe("verifyFedapaySignature", () => {
-  const original = process.env[SECRET_ENV];
   afterEach(() => {
-    if (original === undefined) delete process.env[SECRET_ENV];
-    else process.env[SECRET_ENV] = original;
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    vi.unstubAllGlobals();
   });
 
   it("accepte une signature valide et récente", () => {
     process.env[SECRET_ENV] = SECRET;
     const raw = JSON.stringify({ event: "transaction.status", data: { id: 1 } });
     expect(verifyFedapaySignature(raw, sign(raw, Math.floor(Date.now() / 1000)))).toBe(true);
+  });
+
+  it("refuse les signatures avec un schéma différent de celui de FedaPay", () => {
+    process.env[SECRET_ENV] = SECRET;
+    const raw = "{}";
+    const timestamp = Math.floor(Date.now() / 1000);
+    expect(verifyFedapaySignature(raw, sign(raw, timestamp).replace(",s=", ",v1="))).toBe(false);
   });
 
   it("refuse un rejeu ancien (> 5 min)", () => {
@@ -44,15 +65,83 @@ describe("verifyFedapaySignature", () => {
   });
 
   it("isFedaPayConfigured suit l'environnement", () => {
-    const key = process.env.FEDAPAY_SECRET_KEY;
-    try {
-      delete process.env.FEDAPAY_SECRET_KEY;
-      expect(isFedaPayConfigured()).toBe(false);
-      process.env.FEDAPAY_SECRET_KEY = "sk_x";
-      expect(isFedaPayConfigured()).toBe(true);
-    } finally {
-      if (key === undefined) delete process.env.FEDAPAY_SECRET_KEY;
-      else process.env.FEDAPAY_SECRET_KEY = key;
-    }
+    delete process.env[API_SECRET_ENV];
+    delete process.env[SECRET_ENV];
+    expect(isFedaPayConfigured()).toBe(false);
+
+    process.env[API_SECRET_ENV] = "sk_test_x";
+    process.env[API_BASE_ENV] = "https://sandbox-api.fedapay.com/v1";
+    expect(isFedaPayConfigured()).toBe(false);
+
+    process.env[SECRET_ENV] = "wh_test_x";
+    expect(isFedaPayConfigured()).toBe(true);
+    expect(isFedaPayLiveConfigured()).toBe(false);
+
+    process.env[API_BASE_ENV] = "http://example.com/v1";
+    expect(isFedaPayConfigured()).toBe(false);
+    expect(isFedaPayLiveConfigured()).toBe(false);
+  });
+
+  it("n’active le paiement réel que sur l’API Live avec les deux secrets", () => {
+    process.env[API_SECRET_ENV] = "sk_live_x";
+    process.env[SECRET_ENV] = "wh_live_x";
+    process.env[API_BASE_ENV] = "https://api.fedapay.com/v1";
+    expect(isFedaPayLiveConfigured()).toBe(true);
+  });
+
+  it("crée la transaction puis demande le lien de paiement FedaPay", async () => {
+    process.env[API_SECRET_ENV] = "sk_test_x";
+    process.env[API_BASE_ENV] = "https://sandbox-api.fedapay.com/v1";
+    const responses = [
+      new Response(JSON.stringify({ id: 123, status: "pending" }), { status: 201 }),
+      new Response(JSON.stringify({ url: "https://sandbox.fedapay.com/payment/abc" }), { status: 200 }),
+    ];
+    const fetchMock = vi.fn(async () => responses.shift()!);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createFedapayTransaction({
+      orderId: "order-1",
+      description: "Pass VIP",
+      amountXof: 1000,
+      customerEmail: "client@example.com",
+      callbackUrl: "https://turf.example/mon-compte",
+    });
+
+    expect(result).toMatchObject({
+      transactionId: "123",
+      paymentUrl: "https://sandbox.fedapay.com/payment/abc",
+      amountXof: 1000,
+      status: "pending",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://sandbox-api.fedapay.com/v1/transactions",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://sandbox-api.fedapay.com/v1/transactions/123/token",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("refuse un lien de paiement non sécurisé ou hors domaine FedaPay", async () => {
+    process.env[API_SECRET_ENV] = "sk_test_x";
+    process.env[API_BASE_ENV] = "https://sandbox-api.fedapay.com/v1";
+    const responses = [
+      new Response(JSON.stringify({ id: 123 }), { status: 201 }),
+      new Response(JSON.stringify({ url: "https://evil.example/pay" }), { status: 200 }),
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => responses.shift()!));
+
+    await expect(
+      createFedapayTransaction({
+        orderId: "order-1",
+        description: "Pass VIP",
+        amountXof: 1000,
+        customerEmail: "client@example.com",
+        callbackUrl: "https://turf.example/mon-compte",
+      }),
+    ).rejects.toThrow("FEDAPAY_URL_PAIEMENT_INVALIDE");
   });
 });

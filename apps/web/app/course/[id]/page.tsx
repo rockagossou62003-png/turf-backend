@@ -6,6 +6,7 @@ import { canReadPrediction, projectPrediction } from "@/lib/authz";
 import BuyButton from "@/components/BuyButton";
 import type { ProductType } from "@prisma/client";
 import { getVisibleRaceProviders } from "@/lib/race-providers";
+import { isFedaPayLiveConfigured } from "@/lib/fedapay";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
   if (!race) notFound();
 
   const user = await getSessionUser();
+  const paymentConfigured = isFedaPayLiveConfigured();
+  const paymentAvailable = paymentConfigured || process.env.NODE_ENV !== "production";
   const products = await prisma.product.findMany({ where: { active: true } });
   const productByCode = new Map<string, (typeof products)[number]>(products.map((p) => [p.code as string, p]));
 
@@ -99,6 +102,7 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
                     raceId={race.id}
                     label={PRODUCT_LABELS[requiredProduct] ?? requiredProduct}
                     priceXof={productByCode.get(requiredProduct)!.priceXof}
+                    paymentAvailable={paymentAvailable}
                   />
                 )}
               </div>
@@ -132,13 +136,23 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
             const p = productByCode.get(code);
             if (!p) return null;
             return (
-              <BuyButton key={code} productCode={code as ProductType} raceId={null} label={p.label} priceXof={p.priceXof} />
+              <BuyButton
+                key={code}
+                productCode={code as ProductType}
+                raceId={null}
+                label={p.label}
+                priceXof={p.priceXof}
+                paymentAvailable={paymentAvailable}
+              />
             );
           })}
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
-          Paiement simulé : aucune transaction réelle n’est effectuée. En production, un prestataire (ex. FedaPay)
-          confirmera via le même webhook signé.
+          {paymentConfigured
+            ? "Le paiement est traité par FedaPay. L’accès est activé uniquement après confirmation par webhook."
+            : process.env.NODE_ENV === "production"
+              ? "Le paiement est momentanément indisponible."
+              : "Mode test local : aucun paiement réel n’est effectué."}
         </p>
       </section>
     </main>

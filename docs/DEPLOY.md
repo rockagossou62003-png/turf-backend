@@ -89,14 +89,15 @@ docker compose exec -T postgres pg_restore -U turfpro -d turfpro --clean < backu
 - [ ] Sauvegarde nocturne créée dans `backups/`
 - [ ] Logs propres : `docker compose logs -f web`
 
-## 7. FedaPay (quand le compte est créé)
+## 7. FedaPay
 
-1. Créer le compte marchand sur fedapay.com, récupérer la clé sandbox/live.
-2. Renseigner `FEDAPAY_SECRET_KEY` et redémarrer : `docker compose --profile app up -d web`.
-3. Dans le dashboard FedaPay, configurer le webhook :
-   - URL : `https://votre-domaine.com/api/payments/fedapay`
-   - Secret : `FEDAPAY_WEBHOOK_SECRET` du `.env.production`
-4. Tester un paiement sandbox (le mode simulation est désactivé automatiquement dès qu'une clé est présente).
+1. Dans le tableau de bord FedaPay, commencez avec le compte **Sandbox** et sa clé secrète de test.
+2. Définissez `FEDAPAY_API_BASE=https://sandbox-api.fedapay.com/v1` et `FEDAPAY_SECRET_KEY` avec la clé sandbox.
+3. Créez un webhook sandbox à `https://votre-domaine.com/api/payments/fedapay`, abonné aux événements de transaction. Copiez le secret propre à ce webhook dans `FEDAPAY_WEBHOOK_SECRET`.
+4. Redémarrez l’application, vérifiez `/api/health` (`payments: "configured"`) et terminez un paiement de test. L’accès n’est accordé qu’après le webhook signé.
+5. Pour accepter de vrais paiements, passez le compte FedaPay en mode Live et remplacez **les deux secrets** par les valeurs Live correspondantes. Utilisez `FEDAPAY_API_BASE=https://api.fedapay.com/v1`, puis testez à nouveau avant d’annoncer les paiements comme disponibles.
+
+En production, si un secret manque ou si l’URL API est invalide, les commandes échouent sans créer de commande simulée. Ne partagez jamais les clés dans le chat ni dans Git.
 
 ## 8. Données hippiques françaises
 
